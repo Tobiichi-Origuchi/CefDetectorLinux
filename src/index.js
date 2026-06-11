@@ -7,21 +7,6 @@ let cnt = 0;
 let totalSize = 0;
 const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
 
-invoke('has_args', { arg: 'no-bgm' })
-  .then(async val => {
-    if (val) return;
-    // On Linux we'll just use the iframe since checking local file exists from JS requires fs API which we removed.
-    // Or we can just use the iframe.
-    const iframe = document.createElement('iframe');
-    iframe.src = 'https://music.163.com/outchain/player?type=2&id=5264829&auto=1&height=32';
-    iframe.frameBorder = 0;
-    iframe.border = 0;
-    iframe.marginwidth = 0;
-    iframe.marginheight = 0;
-    iframe.width = 280;
-    iframe.height = 52;
-    document.body.appendChild(iframe);
-  });
 
 const prettySize = len => {
   let order = 0;

@@ -19,10 +19,6 @@ struct AppInfo {
     icon: String, // empty string since Linux doesn't natively provide an easy getFileIcon
 }
 
-#[tauri::command]
-fn has_args(arg: String) -> bool {
-    std::env::args().any(|a| a == format!("--{}", arg))
-}
 
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
@@ -368,7 +364,6 @@ fn start_search(app: AppHandle) {
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            has_args,
             get_app_icon,
             start_search,
             open_path

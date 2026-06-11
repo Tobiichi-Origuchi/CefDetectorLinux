@@ -1,13 +1,1 @@
-*.pak
-*.dll
-electron.exe
-*.dat
-LICENSES.chromium.html
-*.bin
-version
-locales
-default_app.asar
-vk_swiftshader_icd.json
-node_modules
-*.zip
-mini_electron.exe
+node_modules/

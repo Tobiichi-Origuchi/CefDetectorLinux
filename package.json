@@ -1,7 +1,7 @@
 {
-  "name": "cef-detector-x",
+  "name": "cef-detector-linux",
   "version": "0.1.0",
-  "description": "Check how many CEFs are on your Windows.",
+  "description": "Check how many CEFs are on your Linux.",
   "private": true,
   "scripts": {
     "start": "npx --yes @tauri-apps/cli dev",

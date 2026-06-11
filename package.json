@@ -4,33 +4,26 @@
   "description": "Check how many CEFs are on your Windows.",
   "private": true,
   "scripts": {
-    "start": "electron src",
-    "build": "node build"
+    "start": "npx --yes @tauri-apps/cli dev",
+    "build": "npx --yes @tauri-apps/cli build"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ShirasawaSama/CefDetector.git"
+    "url": "git+https://github.com/Tobiichi-Origuchi/CefDetectorLinux.git"
   },
   "keywords": [
     "CEF",
-    "electron",
+    "tauri",
+    "linux",
     "libcef"
   ],
-  "author": "Shirasawa",
+  "author": "Origuchi",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ShirasawaSama/CefDetector/issues"
+    "url": "https://github.com/Tobiichi-Origuchi/CefDetectorLinux/issues"
   },
-  "homepage": "https://github.com/ShirasawaSama/CefDetector#readme",
+  "homepage": "https://github.com/Tobiichi-Origuchi/CefDetectorLinux#readme",
   "devDependencies": {
-    "eslint": "^8.28.0",
-    "eslint-config-standard": "^17.0.0",
-    "eslint-plugin-import": "^2.26.0",
-    "eslint-plugin-n": "^15.5.1",
-    "eslint-plugin-promise": "^6.1.1"
-  },
-  "dependencies": {
-    "electron": "^24.0.0",
-    "jszip": "^3.10.1"
+    "@tauri-apps/cli": "^2.11.2"
   }
 }

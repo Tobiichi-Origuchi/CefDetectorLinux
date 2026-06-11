@@ -13,7 +13,7 @@ Check how many CEFs are on your Linux.
 
 ## 截屏
 
-![Screenshot](./screenshot.jxl)
+![Screenshot](./screenshot.png)
 
 ## 使用
 

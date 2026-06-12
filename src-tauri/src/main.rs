@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
-
 #[derive(Clone, serde::Serialize)]
 struct AppInfo {
     file: String,

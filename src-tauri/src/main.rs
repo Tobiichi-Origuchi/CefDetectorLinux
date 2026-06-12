@@ -96,6 +96,53 @@ fn find_neighboring_icon(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
+fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
+    let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
+    
+    let mut search_dirs = vec![
+        "/usr/share/applications".to_string(),
+        "/var/lib/flatpak/exports/share/applications".to_string(),
+    ];
+    if let Ok(home) = std::env::var("HOME") {
+        search_dirs.push(format!("{}/.local/share/applications", home));
+    }
+
+    for dir in search_dirs {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_some_and(|e| e == "desktop") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        let mut has_exec = false;
+                        let mut icon_val = None;
+                        for line in content.lines() {
+                            if line.starts_with("Exec=") && line.contains(&exe_name) {
+                                has_exec = true;
+                            }
+                            if line.starts_with("Icon=") {
+                                icon_val = Some(line.trim_start_matches("Icon=").to_string());
+                            }
+                        }
+                        if has_exec {
+                            if let Some(icon) = icon_val {
+                                if icon.starts_with('/') {
+                                    let p = PathBuf::from(icon);
+                                    if p.exists() {
+                                        return Some(p);
+                                    }
+                                } else if let Some(p) = find_icon_in_theme(&icon) {
+                                    return Some(p);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
     "".to_string()

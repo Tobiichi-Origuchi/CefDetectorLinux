@@ -174,6 +174,27 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
+pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
+    let path_str = exe_path.to_string_lossy();
+    if !path_str.to_lowercase().ends_with(".exe") {
+        return None;
+    }
+
+    let map = pelite::FileMap::open(exe_path).ok()?;
+    let pe = pelite::PeFile::from_bytes(&map).ok()?;
+    let resources = pe.resources().ok()?;
+    
+    // Iterate over group icons, extract the first valid one
+    for (_name, group) in resources.icons().filter_map(Result::ok) {
+        let mut bytes = Vec::new();
+        if group.write(&mut bytes).is_ok() {
+            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            return Some(format!("data:image/x-icon;base64,{}", encoded));
+        }
+    }
+    None
+}
+
 pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
     let path_str = exe_path.to_string_lossy();
     if !path_str.to_lowercase().ends_with(".appimage") {
@@ -204,6 +225,10 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
 pub fn get_app_icon(path: String) -> String {
     let exe_path = Path::new(&path);
     
+    if let Some(b64) = find_icon_via_pe(exe_path) {
+        return b64;
+    }
+
     if let Some(b64) = find_icon_via_appimage(exe_path) {
         return b64;
     }

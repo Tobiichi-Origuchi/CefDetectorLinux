@@ -198,6 +198,34 @@ fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
+fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
+    let path_str = exe_path.to_string_lossy();
+    if !path_str.to_lowercase().ends_with(".appimage") {
+        return None;
+    }
+    
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let tmp_dir = std::env::temp_dir().join(format!("cef_extract_{}", ts));
+    let _ = fs::create_dir_all(&tmp_dir);
+    
+    if let Ok(output) = Command::new(&*path_str)
+        .arg("--appimage-extract")
+        .arg(".DirIcon")
+        .current_dir(&tmp_dir)
+        .output() 
+    {
+        if output.status.success() {
+            let extracted_icon = tmp_dir.join("squashfs-root").join(".DirIcon");
+            let encoded = encode_file_to_base64(&extracted_icon);
+            let _ = fs::remove_dir_all(&tmp_dir);
+            return encoded;
+        }
+    }
+    let _ = fs::remove_dir_all(&tmp_dir);
+    None
+}
+
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
     "".to_string()

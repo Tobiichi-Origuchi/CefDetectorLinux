@@ -32,7 +32,7 @@ const addAppFromRust = async (appInfo) => {
   nodes.push([appInfo.size, elm]);
 
   const icon = await invoke('get_app_icon', { path: appInfo.file });
-  elm.innerHTML = (icon ? `<img src="data:image/png;base64,${icon}" alt="${fileName}">` : '<h3>?</h3>') +
+  elm.innerHTML = (icon ? `<img src="${icon}" alt="${fileName}">` : '<h3>?</h3>') +
     `<h6 class=${!appInfo.is_dir && appInfo.is_running ? 'running' : ''}>${fileName}</h6><p>${appInfo.app_type}</p><sub>${prettySize(appInfo.size)}</sub>`;
 
   elm.onclick = () => {

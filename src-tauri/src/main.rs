@@ -143,6 +143,61 @@ fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
+fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
+    let path_str = exe_path.to_string_lossy();
+    
+    // Try dpkg first
+    if let Ok(output) = Command::new("dpkg").arg("-S").arg(&*path_str).output() {
+        if output.status.success() {
+            let out_str = String::from_utf8_lossy(&output.stdout);
+            if let Some(pkg) = out_str.split(':').next() {
+                if let Ok(list_out) = Command::new("dpkg").arg("-L").arg(pkg).output() {
+                    let files = String::from_utf8_lossy(&list_out.stdout);
+                    let mut best_icon = None;
+                    for line in files.lines() {
+                        if line.contains("/icons/") || line.contains("/pixmaps/") {
+                            if line.ends_with(".png") || line.ends_with(".svg") {
+                                best_icon = Some(PathBuf::from(line));
+                                if line.contains("256x256") || line.contains("512x512") || line.ends_with(".svg") {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if best_icon.is_some() {
+                        return best_icon;
+                    }
+                }
+            }
+        }
+    }
+
+    // Try rpm
+    if let Ok(output) = Command::new("rpm").arg("-qf").arg(&*path_str).output() {
+        if output.status.success() {
+            let pkg = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if let Ok(list_out) = Command::new("rpm").arg("-ql").arg(&pkg).output() {
+                let files = String::from_utf8_lossy(&list_out.stdout);
+                let mut best_icon = None;
+                for line in files.lines() {
+                    if line.contains("/icons/") || line.contains("/pixmaps/") {
+                        if line.ends_with(".png") || line.ends_with(".svg") {
+                            best_icon = Some(PathBuf::from(line));
+                            if line.contains("256x256") || line.contains("512x512") || line.ends_with(".svg") {
+                                break;
+                            }
+                        }
+                    }
+                }
+                if best_icon.is_some() {
+                    return best_icon;
+                }
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
     "".to_string()

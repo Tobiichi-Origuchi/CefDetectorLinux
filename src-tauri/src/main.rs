@@ -8,6 +8,7 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use tauri::{AppHandle, Emitter};
+use base64::Engine;
 
 #[derive(Clone, serde::Serialize)]
 struct AppInfo {
@@ -17,6 +18,49 @@ struct AppInfo {
     is_running: bool,
     is_dir: bool,
     icon: String, // empty string since Linux doesn't natively provide an easy getFileIcon
+}
+
+fn encode_file_to_base64(path: &Path) -> Option<String> {
+    if let Ok(data) = fs::read(path) {
+        return Some(base64::engine::general_purpose::STANDARD.encode(data));
+    }
+    None
+}
+
+fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
+    let search_dirs = [
+        "/usr/share/pixmaps",
+        "/usr/share/icons/hicolor/512x512/apps",
+        "/usr/share/icons/hicolor/256x256/apps",
+        "/usr/share/icons/hicolor/128x128/apps",
+        "/usr/share/icons/hicolor/64x64/apps",
+        "/usr/share/icons/hicolor/48x48/apps",
+        "/usr/share/icons/hicolor/32x32/apps",
+        "/usr/share/icons/hicolor/scalable/apps",
+        "/usr/share/icons/Adwaita/512x512/apps",
+        "/usr/share/icons/Adwaita/256x256/apps",
+        "/usr/share/icons/Adwaita/scalable/apps",
+    ];
+    let current_home = std::env::var("HOME").ok();
+    
+    let mut all_dirs: Vec<String> = search_dirs.iter().map(|&s| s.to_string()).collect();
+    if let Some(h) = current_home {
+        all_dirs.push(format!("{}/.local/share/icons/hicolor/512x512/apps", h));
+        all_dirs.push(format!("{}/.local/share/icons/hicolor/256x256/apps", h));
+        all_dirs.push(format!("{}/.local/share/icons/hicolor/128x128/apps", h));
+        all_dirs.push(format!("{}/.local/share/icons/hicolor/scalable/apps", h));
+        all_dirs.push(format!("{}/.local/share/icons", h));
+    }
+
+    for ext in ["png", "svg"] {
+        for dir in &all_dirs {
+            let p = Path::new(dir).join(format!("{}.{}", icon_name, ext));
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]

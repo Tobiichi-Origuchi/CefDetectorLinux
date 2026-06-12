@@ -19,7 +19,6 @@ struct AppInfo {
     icon: String, // empty string since Linux doesn't natively provide an easy getFileIcon
 }
 
-
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
     "".to_string()
@@ -69,11 +68,11 @@ fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
             .output()
     };
 
-    if let Ok(output) = fd_res {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            return stdout.lines().map(|s| s.to_string()).collect();
-        }
+    if let Ok(output) = fd_res
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().map(|s| s.to_string()).collect();
     }
 
     // fallback find
@@ -101,11 +100,11 @@ fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
     }
     find_cmd.arg("-print");
 
-    if let Ok(output) = find_cmd.output() {
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            return stdout.lines().map(|s| s.to_string()).collect();
-        }
+    if let Ok(output) = find_cmd.output()
+        && output.status.success()
+    {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        return stdout.lines().map(|s| s.to_string()).collect();
     }
     vec![]
 }
@@ -339,19 +338,19 @@ fn start_search(app: AppHandle) {
                     let is_exec = entry.metadata().unwrap().permissions().mode() & 0o111 != 0;
                     let is_so = path.extension().is_some_and(|e| e == "so");
 
-                    if is_exec || is_so {
-                        if let Ok(data) = fs::read(&path) {
-                            let typ = if contains_bytes(&data, b"napi_create_buffer") {
-                                "Mini Electron"
-                            } else if contains_bytes(&data, b"miniblink") {
-                                "Mini Blink"
-                            } else {
-                                continue;
-                            };
+                    if (is_exec || is_so)
+                        && let Ok(data) = fs::read(&path)
+                    {
+                        let typ = if contains_bytes(&data, b"napi_create_buffer") {
+                            "Mini Electron"
+                        } else if contains_bytes(&data, b"miniblink") {
+                            "Mini Blink"
+                        } else {
+                            continue;
+                        };
 
-                            add_app(&path, typ, false);
-                            break;
-                        }
+                        add_app(&path, typ, false);
+                        break;
                     }
                 }
             }

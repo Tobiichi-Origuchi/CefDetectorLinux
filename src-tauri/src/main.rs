@@ -63,6 +63,39 @@ fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
     None
 }
 
+fn find_neighboring_icon(exe_path: &Path) -> Option<PathBuf> {
+    let parent = exe_path.parent()?;
+    let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
+    
+    let mut dirs_to_check = vec![parent.to_path_buf()];
+    let resources_dir = parent.join("resources");
+    if resources_dir.exists() {
+        dirs_to_check.push(resources_dir);
+    }
+    let assets_dir = parent.join("assets");
+    if assets_dir.exists() {
+        dirs_to_check.push(assets_dir);
+    }
+    
+    let possible_names = [
+        format!("{}.png", exe_name),
+        format!("{}.svg", exe_name),
+        "icon.png".to_string(),
+        "logo.png".to_string(),
+        "app.png".to_string(),
+    ];
+    
+    for dir in dirs_to_check {
+        for name in &possible_names {
+            let p = dir.join(name);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 fn get_app_icon(_path: String) -> String {
     "".to_string()

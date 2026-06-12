@@ -217,7 +217,7 @@ fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
     {
         if output.status.success() {
             let extracted_icon = tmp_dir.join("squashfs-root").join(".DirIcon");
-            let encoded = encode_file_to_base64(&extracted_icon);
+            let encoded = encode_file_to_base64(&extracted_icon).map(|b64| format!("data:image/png;base64,{}", b64));
             let _ = fs::remove_dir_all(&tmp_dir);
             return encoded;
         }
@@ -227,7 +227,35 @@ fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
 }
 
 #[tauri::command]
-fn get_app_icon(_path: String) -> String {
+fn get_app_icon(path: String) -> String {
+    let exe_path = Path::new(&path);
+    
+    if let Some(b64) = find_icon_via_appimage(exe_path) {
+        return b64;
+    }
+    
+    if let Some(p) = find_neighboring_icon(exe_path) {
+        if let Some(b64) = encode_file_to_base64(&p) {
+            return format!("data:image/png;base64,{}", b64);
+        }
+    }
+    
+    if let Some(p) = find_icon_via_package_manager(exe_path) {
+        let ext = p.extension().unwrap_or_default().to_string_lossy();
+        let mime = if ext == "svg" { "image/svg+xml" } else { "image/png" };
+        if let Some(b64) = encode_file_to_base64(&p) {
+            return format!("data:{};base64,{}", mime, b64);
+        }
+    }
+    
+    if let Some(p) = find_icon_via_desktop_file(exe_path) {
+        let ext = p.extension().unwrap_or_default().to_string_lossy();
+        let mime = if ext == "svg" { "image/svg+xml" } else { "image/png" };
+        if let Some(b64) = encode_file_to_base64(&p) {
+            return format!("data:{};base64,{}", mime, b64);
+        }
+    }
+    
     "".to_string()
 }
 

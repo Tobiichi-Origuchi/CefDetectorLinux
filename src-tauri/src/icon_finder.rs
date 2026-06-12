@@ -185,24 +185,91 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
+fn assemble_valid_ico(group: pelite::resources::group::GroupResource<'_>) -> Vec<u8> {
+    let mut out = Vec::new();
+
+    // Write ICO header
+    out.extend_from_slice(&0u16.to_le_bytes()); // idReserved
+    out.extend_from_slice(&1u16.to_le_bytes()); // idType
+
+    let entries = group.entries();
+    out.extend_from_slice(&(entries.len() as u16).to_le_bytes()); // idCount
+
+    let mut image_data = Vec::new();
+    let mut image_offset = 6 + entries.len() as u32 * 16;
+
+    for entry in entries {
+        let bytes = group.image(entry.nId).unwrap_or(&[]);
+        let actual_size = bytes.len() as u32;
+
+        // Write ICONDIRENTRY
+        out.push(entry.bWidth);
+        out.push(entry.bHeight);
+        out.push(entry.bColorCount);
+        out.push(entry.bReserved);
+        out.extend_from_slice(&entry.wPlanes.to_le_bytes());
+        out.extend_from_slice(&entry.wBitCount.to_le_bytes());
+        out.extend_from_slice(&actual_size.to_le_bytes());
+        out.extend_from_slice(&image_offset.to_le_bytes());
+
+        image_data.push(bytes);
+        image_offset += actual_size;
+    }
+
+    // Append all image data
+    for data in image_data {
+        out.extend_from_slice(data);
+    }
+
+    out
+}
+
+fn extract_pe_icon_bytes(exe_path: &Path) -> Option<Vec<u8>> {
+    let map = pelite::FileMap::open(exe_path).ok()?;
+    let pe = pelite::PeFile::from_bytes(&map).ok()?;
+    let resources = pe.resources().ok()?;
+
+    for (_name, group) in resources.icons().filter_map(Result::ok) {
+        let bytes = assemble_valid_ico(group);
+        if !bytes.is_empty() {
+            return Some(bytes);
+        }
+    }
+    None
+}
+
 pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
     let path_str = exe_path.to_string_lossy();
     if !path_str.to_lowercase().ends_with(".exe") {
         return None;
     }
 
-    let map = pelite::FileMap::open(exe_path).ok()?;
-    let pe = pelite::PeFile::from_bytes(&map).ok()?;
-    let resources = pe.resources().ok()?;
+    // Try the exact executable
+    if let Some(bytes) = extract_pe_icon_bytes(exe_path) {
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        return Some(format!("data:image/x-icon;base64,{}", encoded));
+    }
 
-    // Iterate over group icons, extract the first valid one
-    for (_name, group) in resources.icons().filter_map(Result::ok) {
-        let mut bytes = Vec::new();
-        if group.write(&mut bytes).is_ok() {
-            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-            return Some(format!("data:image/x-icon;base64,{}", encoded));
+    // Try sibling executables in the same directory, then parent directory
+    let mut current_dir = exe_path.parent();
+    for _ in 0..2 {
+        if let Some(dir) = current_dir {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.is_file() && p.extension().is_some_and(|e| e == "exe") && p != exe_path
+                        && let Some(bytes) = extract_pe_icon_bytes(&p) {
+                            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                            return Some(format!("data:image/x-icon;base64,{}", encoded));
+                        }
+                }
+            }
+            current_dir = dir.parent();
+        } else {
+            break;
         }
     }
+
     None
 }
 

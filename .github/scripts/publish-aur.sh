@@ -13,7 +13,6 @@ echo "Configuring git for AUR..."
 git config --global user.name "github-actions[bot]"
 git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-# Setup SSH for AUR
 mkdir -p ~/.ssh
 echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur_key
 chmod 600 ~/.ssh/aur_key
@@ -25,12 +24,9 @@ Host aur.archlinux.org
   User aur
 EOF
 
-# Clone the AUR repo for cefdetector-bin
 git clone ssh://aur@aur.archlinux.org/cefdetector-bin.git aur-repo
 cd aur-repo
 
-# The asset name created by Tauri is "Cef Detector_VERSION_amd64.deb"
-# We URL encode the space as %20 for wget
 DEB_FILE="Cef Detector_${RAW_VERSION}_amd64.deb"
 DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/Cef%20Detector_${RAW_VERSION}_amd64.deb"
 
@@ -77,7 +73,6 @@ pkgbase = cefdetector-bin
 pkgname = cefdetector-bin
 EOF
 
-# Commit and push
 git add PKGBUILD .SRCINFO
 if ! git diff-index --quiet HEAD; then
     echo "Pushing new version to AUR..."

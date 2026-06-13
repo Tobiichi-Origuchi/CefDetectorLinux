@@ -36,6 +36,6 @@ git tag "$VERSION"
 
 echo "Pushing to origin..."
 git push origin "$VERSION"
-git push origin main
+git push origin master
 
 echo "Done!"

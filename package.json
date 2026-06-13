@@ -1,6 +1,6 @@
 {
   "name": "cef-detector-linux",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Check how many CEFs are on your Linux.",
   "private": true,
   "scripts": {

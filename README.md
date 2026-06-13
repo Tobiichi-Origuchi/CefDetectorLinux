@@ -19,7 +19,15 @@ Check how many CEFs are on your Linux.
 
 **默认使用 fd 进行文件搜索，如果没有安装 fd，程序将回退到使用系统自带的 find 命令。**
 
+### Debian/Red Hat
+
 从 [Release](https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases) 页面下载最新的 `.deb` 或 `.rpm` 包安装并运行即可。
+
+### Arch Linux
+
+```bash
+yay/paru -S cefdetector-bin
+```
 
 ## 特性
 

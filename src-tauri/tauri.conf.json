@@ -25,6 +25,20 @@
     "shortDescription": "Check how many CEFs are on your Linux.",
     "category": "Utility",
     "active": true,
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "fd-find"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "fd-find"
+        ]
+      }
+    },
     "targets": [
       "deb",
       "rpm"

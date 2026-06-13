@@ -73,38 +73,6 @@ fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
         let stdout = String::from_utf8_lossy(&output.stdout);
         return stdout.lines().map(|s| s.to_string()).collect();
     }
-
-    // fallback find
-    let mut find_cmd = Command::new("find");
-    find_cmd
-        .arg("/")
-        .arg("-path")
-        .arg("/proc")
-        .arg("-prune")
-        .arg("-o")
-        .arg("-path")
-        .arg("/sys")
-        .arg("-prune")
-        .arg("-o")
-        .arg("-path")
-        .arg("/dev")
-        .arg("-prune")
-        .arg("-o")
-        .arg("-type")
-        .arg("f");
-    if is_regex {
-        find_cmd.arg("-regex").arg(format!(".*{}.*", regex_pattern));
-    } else {
-        find_cmd.arg("-name").arg(format!("*{}*", regex_pattern));
-    }
-    find_cmd.arg("-print");
-
-    if let Ok(output) = find_cmd.output()
-        && output.status.success()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        return stdout.lines().map(|s| s.to_string()).collect();
-    }
     vec![]
 }
 

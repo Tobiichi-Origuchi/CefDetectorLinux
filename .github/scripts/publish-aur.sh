@@ -67,6 +67,7 @@ pkgbase = cefdetector-bin
 	arch = x86_64
 	license = MIT
 	depends = webkit2gtk-4.1
+	depends = fd
 	provides = cefdetector
 	conflicts = cefdetector
 	source = ${DEB_FILE}::${DEB_URL}

@@ -27,13 +27,15 @@ EOF
 git clone ssh://aur@aur.archlinux.org/cefdetector-bin.git aur-repo
 cd aur-repo
 
-DEB_FILE="Cef Detector_${RAW_VERSION}_amd64.deb"
-DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/Cef%20Detector_${RAW_VERSION}_amd64.deb"
+DEB_FILE="CefDetector_${RAW_VERSION}_amd64.deb"
+DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${DEB_FILE}"
 
-echo "Downloading deb file for sha256sum calculation..."
-wget -q -O target.deb "$DEB_URL"
-SHA256=$(sha256sum target.deb | awk '{print $1}')
-rm target.deb
+echo "Calculating sha256sum..."
+LOCAL_DEB="../src-tauri/target/release/bundle/deb/CefDetector_${RAW_VERSION}_amd64.deb"
+if [ ! -f "$LOCAL_DEB" ]; then
+    exit 1
+fi
+SHA256=$(sha256sum "$LOCAL_DEB" | awk '{print $1}')
 
 echo "Generating PKGBUILD..."
 cat <<EOF > PKGBUILD

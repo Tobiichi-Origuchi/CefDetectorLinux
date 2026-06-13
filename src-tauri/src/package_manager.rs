@@ -226,21 +226,24 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
     let mut icon_name = None;
     for file in &files {
         if file.extension().is_some_and(|e| e == "desktop")
-            && let Ok(content) = std::fs::read_to_string(file) {
-                for line in content.lines() {
-                    if line.starts_with("Icon=") {
-                        icon_name = Some(line.trim_start_matches("Icon=").to_string());
-                        break;
-                    }
+            && let Ok(content) = std::fs::read_to_string(file)
+        {
+            for line in content.lines() {
+                if line.starts_with("Icon=") {
+                    icon_name = Some(line.trim_start_matches("Icon=").to_string());
+                    break;
                 }
             }
+        }
     }
 
     // Try to find the exact icon specified in .desktop
     if let Some(name) = icon_name {
         for file in &files {
             let file_name = file.file_name().unwrap_or_default().to_string_lossy();
-            let is_image = file_name.ends_with(".png") || file_name.ends_with(".svg") || file_name.ends_with(".xpm");
+            let is_image = file_name.ends_with(".png")
+                || file_name.ends_with(".svg")
+                || file_name.ends_with(".xpm");
             if is_image {
                 let file_stem = file.file_stem().unwrap_or_default().to_string_lossy();
                 if file_stem == name || file_name == name {
@@ -260,30 +263,30 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
             && (path_str.contains("icons/")
                 || path_str.contains("pixmaps/")
                 || path_str.contains("meta/gui/"))
-            {
-                // If it's a PNG, prefer larger resolutions
-                if path_str.ends_with(".png") {
-                    let mut size = 0;
-                    if path_str.contains("256x256") {
-                        size = 256;
-                    } else if path_str.contains("128x128") {
-                        size = 128;
-                    } else if path_str.contains("64x64") {
-                        size = 64;
-                    } else if path_str.contains("48x48") {
-                        size = 48;
-                    } else if path_str.contains("32x32") {
-                        size = 32;
-                    }
+        {
+            // If it's a PNG, prefer larger resolutions
+            if path_str.ends_with(".png") {
+                let mut size = 0;
+                if path_str.contains("256x256") {
+                    size = 256;
+                } else if path_str.contains("128x128") {
+                    size = 128;
+                } else if path_str.contains("64x64") {
+                    size = 64;
+                } else if path_str.contains("48x48") {
+                    size = 48;
+                } else if path_str.contains("32x32") {
+                    size = 32;
+                }
 
-                    if size > max_size {
-                        max_size = size;
-                        best_icon = Some(file);
-                    }
-                } else if best_icon.is_none() {
+                if size > max_size {
+                    max_size = size;
                     best_icon = Some(file);
                 }
+            } else if best_icon.is_none() {
+                best_icon = Some(file);
             }
+        }
     }
 
     best_icon

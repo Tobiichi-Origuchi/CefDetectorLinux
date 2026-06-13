@@ -288,5 +288,5 @@ pub fn get_app_icon(path: String) -> String {
         }
     }
 
-    "".to_string()
+    include_str!("default_cef_icon.txt").to_string()
 }

@@ -124,67 +124,6 @@ pub fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
     None
 }
 
-pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
-    let path_str = exe_path.to_string_lossy();
-
-    // Try dpkg first
-    if let Ok(output) = Command::new("dpkg").arg("-S").arg(&*path_str).output()
-        && output.status.success()
-    {
-        let out_str = String::from_utf8_lossy(&output.stdout);
-        if let Some(pkg) = out_str.split(':').next()
-            && let Ok(list_out) = Command::new("dpkg").arg("-L").arg(pkg).output()
-        {
-            let files = String::from_utf8_lossy(&list_out.stdout);
-            let mut best_icon = None;
-            for line in files.lines() {
-                if (line.contains("/icons/") || line.contains("/pixmaps/"))
-                    && (line.ends_with(".png") || line.ends_with(".svg"))
-                {
-                    best_icon = Some(PathBuf::from(line));
-                    if line.contains("256x256")
-                        || line.contains("512x512")
-                        || line.ends_with(".svg")
-                    {
-                        break;
-                    }
-                }
-            }
-            if best_icon.is_some() {
-                return best_icon;
-            }
-        }
-    }
-
-    // Try rpm
-    if let Ok(output) = Command::new("rpm").arg("-qf").arg(&*path_str).output()
-        && output.status.success()
-    {
-        let pkg = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if let Ok(list_out) = Command::new("rpm").arg("-ql").arg(&pkg).output() {
-            let files = String::from_utf8_lossy(&list_out.stdout);
-            let mut best_icon = None;
-            for line in files.lines() {
-                if (line.contains("/icons/") || line.contains("/pixmaps/"))
-                    && (line.ends_with(".png") || line.ends_with(".svg"))
-                {
-                    best_icon = Some(PathBuf::from(line));
-                    if line.contains("256x256")
-                        || line.contains("512x512")
-                        || line.ends_with(".svg")
-                    {
-                        break;
-                    }
-                }
-            }
-            if best_icon.is_some() {
-                return best_icon;
-            }
-        }
-    }
-    None
-}
-
 fn assemble_valid_ico(group: pelite::resources::group::GroupResource<'_>) -> Vec<u8> {
     let mut out = Vec::new();
 
@@ -257,11 +196,14 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
             if let Ok(entries) = std::fs::read_dir(dir) {
                 for entry in entries.flatten() {
                     let p = entry.path();
-                    if p.is_file() && p.extension().is_some_and(|e| e == "exe") && p != exe_path
-                        && let Some(bytes) = extract_pe_icon_bytes(&p) {
-                            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                            return Some(format!("data:image/x-icon;base64,{}", encoded));
-                        }
+                    if p.is_file()
+                        && p.extension().is_some_and(|e| e == "exe")
+                        && p != exe_path
+                        && let Some(bytes) = extract_pe_icon_bytes(&p)
+                    {
+                        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        return Some(format!("data:image/x-icon;base64,{}", encoded));
+                    }
                 }
             }
             current_dir = dir.parent();
@@ -322,7 +264,7 @@ pub fn get_app_icon(path: String) -> String {
         return format!("data:image/png;base64,{}", b64);
     }
 
-    if let Some(p) = find_icon_via_package_manager(exe_path) {
+    if let Some(p) = crate::package_manager::find_icon_via_package_manager(exe_path) {
         let ext = p.extension().unwrap_or_default().to_string_lossy();
         let mime = if ext == "svg" {
             "image/svg+xml"

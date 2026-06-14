@@ -23,7 +23,7 @@ sed -i "0,/\"version\": \".*\"/s/\"version\": \".*\"/\"version\": \"$RAW_VERSION
 sed -i "0,/^version = \".*\"/s/^version = \".*\"/version = \"$RAW_VERSION\"/" src-tauri/Cargo.toml
 
 echo "Updating package-lock.json..."
-npm ci
+npm i
 
 echo "Updating Cargo.lock..."
 cd src-tauri

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CefDetector",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "identifier": "com.cefdetector.linux",
   "build": {
     "frontendDist": "../src"

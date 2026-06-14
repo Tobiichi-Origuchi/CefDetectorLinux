@@ -28,8 +28,7 @@
     "linux": {
       "deb": {
         "depends": [
-          "libwebkit2gtk-4.1-0",
-          "fd-find"
+          "libwebkit2gtk-4.1-0"
         ],
         "files": {
           "/usr/share/bash-completion/completions/cefdetector": "completions/cefdetector.bash",
@@ -39,8 +38,7 @@
       },
       "rpm": {
         "depends": [
-          "webkit2gtk4.1",
-          "fd-find"
+          "webkit2gtk4.1"
         ],
         "files": {
           "/usr/share/bash-completion/completions/cefdetector": "completions/cefdetector.bash",

@@ -20,46 +20,63 @@ pub fn open_path(path: String, is_dir: bool) {
     }
 }
 
+use ignore::{WalkBuilder, WalkState};
+use regex::Regex;
+
 fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
-    // fd
-    let fd_res = if is_regex {
-        Command::new("fd")
-            .arg("-t")
-            .arg("f")
-            .arg(regex_pattern)
-            .arg("/")
-            .arg("-H")
-            .arg("-E")
-            .arg("/proc")
-            .arg("-E")
-            .arg("/sys")
-            .arg("-E")
-            .arg("/dev")
-            .output()
+    let re = if is_regex {
+        Regex::new(regex_pattern).ok()
     } else {
-        Command::new("fd")
-            .arg("-t")
-            .arg("f")
-            .arg("-F")
-            .arg(regex_pattern)
-            .arg("/")
-            .arg("-H")
-            .arg("-E")
-            .arg("/proc")
-            .arg("-E")
-            .arg("/sys")
-            .arg("-E")
-            .arg("/dev")
-            .output()
+        let escaped = regex::escape(regex_pattern);
+        Regex::new(&escaped).ok()
     };
 
-    if let Ok(output) = fd_res
-        && output.status.success()
-    {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        return stdout.lines().map(|s| s.to_string()).collect();
-    }
-    vec![]
+    let re = match re {
+        Some(r) => r,
+        None => return vec![],
+    };
+
+    let results = Arc::new(Mutex::new(Vec::new()));
+
+    let mut builder = WalkBuilder::new("/");
+    builder
+        .hidden(false)
+        .parents(false)
+        .ignore(false)
+        .git_global(false)
+        .git_ignore(false)
+        .git_exclude(false)
+        .filter_entry(|entry| {
+            let path = entry.path();
+            // Exclude special file systems
+            if path.starts_with("/proc") || path.starts_with("/sys") || path.starts_with("/dev") {
+                return false;
+            }
+            true
+        });
+
+    builder.build_parallel().run(|| {
+        let results = Arc::clone(&results);
+        let re = re.clone();
+        Box::new(move |result| {
+            if let Ok(entry) = result
+                && let Some(file_type) = entry.file_type()
+                && file_type.is_file()
+            {
+                let name = entry.file_name().to_string_lossy();
+                if re.is_match(&name) {
+                    let mut res = results.lock().unwrap();
+                    res.push(entry.path().to_string_lossy().to_string());
+                }
+            }
+            WalkState::Continue
+        })
+    });
+
+    let mut res = results.lock().unwrap();
+    let mut final_res = Vec::new();
+    std::mem::swap(&mut *res, &mut final_res);
+    final_res
 }
 
 fn dir_size(dir: &Path, cache: &mut HashSet<u64>, deep: u32) -> u64 {

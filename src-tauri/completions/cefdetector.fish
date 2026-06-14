@@ -1,0 +1,6 @@
+complete -c cefdetector -s h -l help -d "Print help information"
+complete -c cefdetector -s V -l version -d "Print version information"
+complete -c cefdetector -s T -l toml -d "Output results in TOML format"
+complete -c cefdetector -s J -l json -d "Output results in JSON format"
+complete -c cefdetector -s C -l csv -d "Output results in CSV format"
+complete -c cefdetector -s O -l output -r -F -d "Output results to the specified file path instead of stdout"

@@ -30,13 +30,23 @@
         "depends": [
           "libwebkit2gtk-4.1-0",
           "fd-find"
-        ]
+        ],
+        "files": {
+          "/usr/share/bash-completion/completions/cefdetector": "completions/cefdetector.bash",
+          "/usr/share/zsh/vendor-completions/_cefdetector": "completions/cefdetector.zsh",
+          "/usr/share/fish/vendor_completions.d/cefdetector.fish": "completions/cefdetector.fish"
+        }
       },
       "rpm": {
         "depends": [
           "webkit2gtk4.1",
           "fd-find"
-        ]
+        ],
+        "files": {
+          "/usr/share/bash-completion/completions/cefdetector": "completions/cefdetector.bash",
+          "/usr/share/zsh/vendor-completions/_cefdetector": "completions/cefdetector.zsh",
+          "/usr/share/fish/vendor_completions.d/cefdetector.fish": "completions/cefdetector.fish"
+        }
       }
     },
     "targets": [

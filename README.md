@@ -17,8 +17,6 @@ Check how many CEFs are on your Linux
 
 ## 安装
 
-**使用 fd 进行文件搜索，系统必需安装 fd（fd-find）**
-
 ### Debian/Red Hat
 
 从 [Release](https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases) 页面下载最新的 `.deb` 或 `.rpm` 包安装并运行即可

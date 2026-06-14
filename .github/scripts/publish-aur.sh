@@ -46,6 +46,7 @@ pkgdesc="Check how many CEFs are on your Linux."
 arch=('x86_64')
 url="https://github.com/Tobiichi-Origuchi/CefDetectorLinux"
 license=('MIT')
+depends=('webkit2gtk-4.1')
 provides=('cefdetector')
 conflicts=('cefdetector')
 source=("${DEB_FILE}::${DEB_URL}")

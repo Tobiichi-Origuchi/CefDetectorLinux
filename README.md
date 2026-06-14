@@ -17,7 +17,7 @@ Check how many CEFs are on your Linux.
 
 ## 使用
 
-**默认使用 fd 进行文件搜索，如果没有安装 fd，程序将回退到使用系统自带的 find 命令。**
+**使用 fd 进行文件搜索，系统必需安装 fd（fd-find）**
 
 ### Debian/Red Hat
 

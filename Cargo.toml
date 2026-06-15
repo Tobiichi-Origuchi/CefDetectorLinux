@@ -34,6 +34,7 @@ description = "Check how many CEFs are on your Linux."
 icons = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
 formats = ["deb", "pacman"]
 out-dir = "target/release/packager"
+before-packaging-command = "cargo build --release"
 
 [package.metadata.packager.deb]
 files = { "completions/cefdetector.bash" = "/usr/share/bash-completion/completions/cefdetector", "completions/cefdetector.zsh" = "/usr/share/zsh/vendor-completions/_cefdetector", "completions/cefdetector.fish" = "/usr/share/fish/vendor_completions.d/cefdetector.fish" }

@@ -289,7 +289,6 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
     None
 }
 
-
 pub fn get_app_icon(path: String) -> String {
     let exe_path = Path::new(&path);
 

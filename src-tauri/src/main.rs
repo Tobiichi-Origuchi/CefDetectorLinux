@@ -29,15 +29,19 @@ fn format_size(len: u64) -> String {
 }
 
 fn load_image_from_base64(b64: &str) -> Image {
-    if let Some(data) = b64.split(',').nth(1) {
-        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data) {
-            if b64.starts_with("data:image/svg+xml") {
-                return Image::load_from_svg_data(&bytes).unwrap_or_default();
-            } else if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
-                let rgba = dynamic_image.into_rgba8();
-                let buffer = slint::SharedPixelBuffer::clone_from_slice(rgba.as_raw(), rgba.width(), rgba.height());
-                return Image::from_rgba8(buffer);
-            }
+    if let Some(data) = b64.split(',').nth(1)
+        && let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data)
+    {
+        if b64.starts_with("data:image/svg+xml") {
+            return Image::load_from_svg_data(&bytes).unwrap_or_default();
+        } else if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
+            let rgba = dynamic_image.into_rgba8();
+            let buffer = slint::SharedPixelBuffer::clone_from_slice(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+            );
+            return Image::from_rgba8(buffer);
         }
     }
     Image::default()
@@ -72,7 +76,10 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     ui.on_open_repo(|| {
-        search::open_path("https://github.com/Tobiichi-Origuchi/CefDetectorLinux".into(), false);
+        search::open_path(
+            "https://github.com/Tobiichi-Origuchi/CefDetectorLinux".into(),
+            false,
+        );
     });
 
     let ui_handle_clone = ui_handle.clone();
@@ -113,15 +120,15 @@ fn main() -> Result<(), slint::PlatformError> {
             });
 
             // Sort descending by size
-            tracked_apps.sort_by(|a, b| b.size.cmp(&a.size));
-            
+            tracked_apps.sort_by_key(|b| std::cmp::Reverse(b.size));
+
             // Clone items to send to UI thread
             let items_to_send: Vec<TrackedApp> = tracked_apps.clone();
 
             let ui_handle_cb = ui_handle_clone.clone();
             let current_cnt = cnt;
             let current_total = total_size;
-            
+
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_handle_cb.upgrade() {
                     let mut app_items = Vec::new();
@@ -140,7 +147,11 @@ fn main() -> Result<(), slint::PlatformError> {
                     let new_model = Rc::new(VecModel::from(app_items));
                     ui.set_apps(ModelRc::from(new_model));
 
-                    let status = format!("这台电脑上已找到 {} 个 Chromium 内核的应用 ({}) - 搜索中...", current_cnt, format_size(current_total));
+                    let status = format!(
+                        "这台电脑上已找到 {} 个 Chromium 内核的应用 ({}) - 搜索中...",
+                        current_cnt,
+                        format_size(current_total)
+                    );
                     ui.set_search_status(SharedString::from(status));
                 }
             })
@@ -151,7 +162,11 @@ fn main() -> Result<(), slint::PlatformError> {
         slint::invoke_from_event_loop(move || {
             if let Some(ui) = ui_handle_cb.upgrade() {
                 let status = if cnt > 0 {
-                    format!("搜索完成！这台电脑上总共有 {} 个 Chromium 内核的应用 ({})", cnt, format_size(total_size))
+                    format!(
+                        "搜索完成！这台电脑上总共有 {} 个 Chromium 内核的应用 ({})",
+                        cnt,
+                        format_size(total_size)
+                    )
                 } else {
                     "搜索完成！这台电脑上没有 Chromium 内核的应用".to_string()
                 };

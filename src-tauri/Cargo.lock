@@ -558,7 +558,7 @@ dependencies = [
 
 [[package]]
 name = "cefdetector"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "backhand",
  "base64 0.22.1",

@@ -1,5 +1,4 @@
-import { ScrollView } from "std-widgets.slint";
-
+// No extra imports needed now
 export struct AppItem {
     file: string,
     app_type: string,
@@ -120,10 +119,10 @@ export component AppWindow inherits Window {
         }
 
         // Scrollable grid area: top=30vh, bottom=10vh => height=60vh
-        sv := ScrollView {
+        flick := Flickable {
             x: root.width * 0.10;
             y: root.height * 0.30;
-            width: root.scroll_w;
+            width: root.scroll_w - 16px; // leave space for scrollbar
             height: root.height * 0.60;
             viewport-width: self.width;
             viewport-height: root.rows * root.cell_h;
@@ -139,6 +138,35 @@ export component AppWindow inherits Window {
                 is_dir: app.is_dir;
                 file: app.file;
                 clicked => { root.open_path(app.file, app.is_dir); }
+            }
+        }
+
+        // Custom Scrollbar
+        if flick.viewport-height > flick.height: Rectangle {
+            x: flick.x + flick.width + 8px;
+            y: flick.y;
+            width: 8px;
+            height: flick.height;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+
+            Rectangle {
+                width: 100%;
+                border-radius: 4px;
+                background: scroll_ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
+                border-width: 1px;
+                border-color: scroll_ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
+
+                property <length> track_h: parent.height;
+                property <length> vp_h: flick.viewport-height;
+                height: Math.max(20px, self.track_h * (flick.height / self.vp_h));
+                y: (flick.viewport-y <= 0) ? (-flick.viewport-y / (self.vp_h - flick.height)) * (self.track_h - self.height) : 0;
+
+                scroll_ta := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    // Dragging scrollbar not fully implemented here, but mousewheel works on Flickable.
+                }
             }
         }
 

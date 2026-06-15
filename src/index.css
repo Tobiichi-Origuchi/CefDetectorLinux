@@ -1,6 +1,7 @@
 body {
     background-image: url(background.webp);
-    background-size: 100% 100%;
+    background-size: cover;
+    background-position: center;
     background-repeat: no-repeat;
     width: 100vw;
     height: 100vh;
@@ -44,7 +45,6 @@ section {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    backdrop-filter: blur(3px);
     text-align: center;
 }
 
@@ -79,6 +79,10 @@ p {
 
 .running {
     color: #4caf50;
+}
+
+.completed {
+    color: #2196f3;
 }
 
 sub {

@@ -17,6 +17,9 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
       - name: Build and Package
         run: |
           cargo install cargo-packager

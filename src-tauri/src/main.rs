@@ -171,6 +171,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     "搜索完成！这台电脑上没有 Chromium 内核的应用".to_string()
                 };
                 ui.set_search_status(SharedString::from(status));
+                ui.set_search_done(true);
             }
         })
         .unwrap();

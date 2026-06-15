@@ -10,19 +10,96 @@ export struct AppItem {
     filename: string,
 }
 
+// CSS original layout:
+//   section: width=80 + padding-lr=6*2 + border=1*2 = 94px visible, + margin=6*2 = 106px cell
+//            height=90 + padding-tb=12*2 + border=1*2 = 116px visible, + margin=6*2 = 128px cell
+//   main: top=30vh, bottom=10vh, padding=0 10vw (height = 60vh)
+//   h2: margin-top=21vh
+//   a: fixed left=10px bottom=20px
+
+component AppCard inherits Rectangle {
+    in property <image> icon;
+    in property <string> filename;
+    in property <string> app_type;
+    in property <string> size_str;
+    in property <bool> is_running;
+    in property <bool> is_dir;
+    in property <string> file;
+    callback clicked();
+
+    width: 94px;
+    height: 116px;
+    border-radius: 4px;
+    background: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
+    border-width: 1px;
+    border-color: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
+
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    VerticalLayout {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        padding-left: 6px;
+        padding-right: 6px;
+        alignment: center;
+        spacing: 2px;
+
+        HorizontalLayout {
+            alignment: center;
+            Image {
+                source: root.icon;
+                width: 36px;
+                height: 36px;
+            }
+        }
+        Text {
+            text: root.filename;
+            font-size: 11px;
+            font-weight: 700;
+            color: root.is_running ? #4caf50 : black;
+            horizontal-alignment: center;
+            overflow: elide;
+            max-width: 76px;
+        }
+        Text {
+            text: root.app_type;
+            font-size: 10px;
+            color: root.is_running ? #4caf50 : #000000;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.size_str;
+            font-size: 9px;
+            color: rgba(0, 0, 0, 0.84);
+            horizontal-alignment: center;
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     title: "CEF Detector Linux";
     width: 800px;
     height: 600px;
-    
+
     in property <string> search_status: "正在全盘搜索 CEF 应用，请耐心等待...";
+    in property <bool> search_done: false;
     in property <[AppItem]> apps: [];
     callback open_path(string, bool);
     callback open_repo();
 
+    // cell = card + margin: 106px wide, 128px tall
+    property <length> cell_w: 106px;
+    property <length> cell_h: 128px;
+    property <length> scroll_w: root.width * 0.80;
+    property <int> cols: Math.max(1, Math.floor(scroll_w / cell_w));
+    property <int> rows: Math.ceil(root.apps.length / cols);
+
     Rectangle {
         width: 100%;
         height: 100%;
+
         Image {
             source: @image-url("background.webp");
             width: 100%;
@@ -30,93 +107,49 @@ export component AppWindow inherits Window {
             image-fit: cover;
         }
 
-        VerticalLayout {
-            padding-top: root.height * 0.21;
-            
-            Text {
-                text: root.search_status;
-                font-size: 24px;
-                font-weight: 700;
-                color: #ffffff;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
+        // Title: margin-top 21vh, centered horizontally
+        Text {
+            x: 0;
+            y: root.height * 0.21;
+            width: root.width;
+            font-size: 18px;
+            font-weight: 700;
+            color: root.search_done ? #2196f3 : #ffffff;
+            horizontal-alignment: center;
+            text: root.search_status;
+        }
 
-            HorizontalLayout {
-                padding-left: root.width * 0.10;
-                padding-right: root.width * 0.10;
-                padding-top: root.height * 0.05;
-                
-                sv := ScrollView {
-                    width: 100%;
-                    height: root.height * 0.60;
-                    property <int> cols: Math.max(1, Math.floor(self.width / 104px));
-                    viewport-width: self.width;
-                    viewport-height: Math.ceil(root.apps.length / self.cols) * 126px;
+        // Scrollable grid area: top=30vh, bottom=10vh => height=60vh
+        sv := ScrollView {
+            x: root.width * 0.10;
+            y: root.height * 0.30;
+            width: root.scroll_w;
+            height: root.height * 0.60;
+            viewport-width: self.width;
+            viewport-height: root.rows * root.cell_h;
 
-                    for app[i] in root.apps : Rectangle {
-                        x: Math.mod(i, sv.cols) * 104px + 6px;
-                        y: Math.floor(i / sv.cols) * 126px + 6px;
-                        width: 92px;
-                        height: 114px;
-                        border-radius: 4px;
-                        background: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
-                        border-width: 1px;
-                        border-color: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
-
-                        ta := TouchArea {
-                            clicked => { root.open_path(app.file, app.is_dir); }
-                        }
-
-                        VerticalLayout {
-                            padding-top: 12px;
-                            padding-bottom: 12px;
-                            padding-left: 6px;
-                            padding-right: 6px;
-                            alignment: start;
-                            spacing: 4px;
-
-                            HorizontalLayout {
-                                alignment: center;
-                                Image {
-                                    source: app.icon;
-                                    width: 36px;
-                                    height: 36px;
-                                }
-                            }
-                            Text {
-                                text: app.filename;
-                                font-size: 14px;
-                                font-weight: 700;
-                                color: black;
-                                horizontal-alignment: center;
-                                overflow: elide;
-                            }
-                            Text {
-                                text: app.app_type;
-                                font-size: 10px;
-                                color: app.is_running ? #4caf50 : (app.app_type == "unknown" ? #000000 : #2196f3);
-                                horizontal-alignment: center;
-                            }
-                            Text {
-                                text: app.size_str;
-                                font-size: 9px;
-                                color: rgba(0, 0, 0, 0.84);
-                                horizontal-alignment: center;
-                            }
-                        }
-                    }
-                }
+            for app[i] in root.apps : AppCard {
+                x: Math.mod(i, root.cols) * root.cell_w + 6px;
+                y: Math.floor(i / root.cols) * root.cell_h + 6px;
+                icon: app.icon;
+                filename: app.filename;
+                app_type: app.app_type;
+                size_str: app.size_str;
+                is_running: app.is_running;
+                is_dir: app.is_dir;
+                file: app.file;
+                clicked => { root.open_path(app.file, app.is_dir); }
             }
         }
 
+        // Repo link: fixed left=10px bottom=20px
         TouchArea {
             x: 10px;
-            y: root.height - 30px;
+            y: root.height - 32px;
             width: link_text.width;
             height: link_text.height;
             clicked => { root.open_repo(); }
-            
+
             link_text := Text {
                 text: "Repo: github.com/Tobiichi-Origuchi/CefDetectorLinux (求个STAR!)";
                 color: parent.has-hover ? #ffffff : rgba(255, 255, 255, 0.8);

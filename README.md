@@ -17,9 +17,9 @@ Check how many CEFs are on your Linux
 
 ## 安装
 
-### Debian/Red Hat
+### Debian
 
-从 [Release](https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases) 页面下载最新的 `.deb` 或 `.rpm` 包安装并运行即可
+从 [Release](https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases) 页面下载最新的 `.deb` 包安装
 
 ### Arch Linux
 

@@ -27,7 +27,7 @@ EOF
 git clone ssh://aur@aur.archlinux.org/cefdetector-bin.git aur-repo
 cd aur-repo
 
-PKG_FILE="cefdetector-${RAW_VERSION}-1-x86_64.pkg.tar.zst"
+PKG_FILE="cefdetector_${RAW_VERSION}_x86_64.tar.gz"
 PKG_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${PKG_FILE}"
 
 echo "Calculating sha256sum..."
@@ -49,13 +49,12 @@ url="https://github.com/Tobiichi-Origuchi/CefDetectorLinux"
 license=('MIT')
 provides=('cefdetector')
 conflicts=('cefdetector')
-source=("\${pkgname}-\${pkgver}.pkg.tar.zst::${PKG_URL}")
+source=("\${pkgname}-\${pkgver}.tar.gz::${PKG_URL}")
 sha256sums=('${SHA256}')
-noextract=("\${pkgname}-\${pkgver}.pkg.tar.zst")
+noextract=("\${pkgname}-\${pkgver}.tar.gz")
 
 package() {
-    bsdtar -xf "\${srcdir}/\${pkgname}-\${pkgver}.pkg.tar.zst" -C "\$pkgdir/"
-    rm -f "\${pkgdir}/.MTREE" "\${pkgdir}/.PKGINFO" "\${pkgdir}/.BUILDINFO"
+    bsdtar -xf "\${srcdir}/\${pkgname}-\${pkgver}.tar.gz" -C "\$pkgdir/"
 }
 EOF
 

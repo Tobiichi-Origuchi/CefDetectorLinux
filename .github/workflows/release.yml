@@ -27,8 +27,7 @@ jobs:
         with:
           files: |
             src-tauri/target/release/packager/*.deb
-            src-tauri/target/release/packager/*.AppImage
-            src-tauri/target/release/packager/*.pkg.tar.zst
+            src-tauri/target/release/packager/*_x86_64.tar.gz
 
       - name: Publish to AUR
         env:

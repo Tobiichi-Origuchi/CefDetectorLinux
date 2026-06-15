@@ -41,10 +41,6 @@ fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
     let mut builder = WalkBuilder::new("/");
     builder
         .hidden(false)
-        .parents(false)
-        .ignore(false)
-        .git_global(false)
-        .git_ignore(true)
         .git_exclude(false)
         .filter_entry(|entry| {
             let path = entry.path();

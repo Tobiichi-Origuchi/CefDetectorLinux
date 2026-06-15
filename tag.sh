@@ -31,7 +31,7 @@ cargo check
 cd ..
 
 echo "Committing files..."
-git add package.json src/package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+git add package.json package-lock.json src/package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "$VERSION"
 
 echo "Creating tag $VERSION..."

@@ -2,7 +2,7 @@
 
 Check how many CEFs are on your Linux
 
-**【使用 Rust & Tauri 编写，专为 Linux 打造】**
+**【使用 rust 编写，专为 Linux 打造】**
 
 看看你电脑 **(Linux)** 上有多少个 [CEF (Chromium Embedded Framework)](https://github.com/chromiumembedded/cef)
 

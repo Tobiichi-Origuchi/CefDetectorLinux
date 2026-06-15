@@ -34,6 +34,7 @@ component AppCard inherits Rectangle {
     border-color: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
 
     ta := TouchArea {
+        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -211,6 +212,7 @@ export component AppWindow inherits Window {
             y: root.height - 32px;
             width: link_text.width;
             height: link_text.height;
+            mouse-cursor: pointer;
             clicked => {
                 root.open_repo();
             }

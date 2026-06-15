@@ -44,7 +44,7 @@ fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
         .parents(false)
         .ignore(false)
         .git_global(false)
-        .git_ignore(false)
+        .git_ignore(true)
         .git_exclude(false)
         .filter_entry(|entry| {
             let path = entry.path();

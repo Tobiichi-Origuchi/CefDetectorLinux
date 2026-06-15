@@ -34,7 +34,9 @@ component AppCard inherits Rectangle {
     border-color: ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
 
     ta := TouchArea {
-        clicked => { root.clicked(); }
+        clicked => {
+            root.clicked();
+        }
     }
 
     VerticalLayout {
@@ -53,6 +55,7 @@ component AppCard inherits Rectangle {
                 height: 36px;
             }
         }
+
         Text {
             text: root.filename;
             font-size: 11px;
@@ -62,12 +65,14 @@ component AppCard inherits Rectangle {
             overflow: elide;
             max-width: 76px;
         }
+
         Text {
             text: root.app_type;
             font-size: 10px;
             color: root.is_running ? #4caf50 : #000000;
             horizontal-alignment: center;
         }
+
         Text {
             text: root.size_str;
             font-size: 9px;
@@ -127,7 +132,7 @@ export component AppWindow inherits Window {
             viewport-width: self.width;
             viewport-height: root.rows * root.cell_h;
 
-            for app[i] in root.apps : AppCard {
+            for app[i] in root.apps: AppCard {
                 x: Math.mod(i, root.cols) * root.cell_w + 6px;
                 y: Math.floor(i / root.cols) * root.cell_h + 6px;
                 icon: app.icon;
@@ -137,7 +142,9 @@ export component AppWindow inherits Window {
                 is_running: app.is_running;
                 is_dir: app.is_dir;
                 file: app.file;
-                clicked => { root.open_path(app.file, app.is_dir); }
+                clicked => {
+                    root.open_path(app.file, app.is_dir);
+                }
             }
         }
 
@@ -150,7 +157,41 @@ export component AppWindow inherits Window {
             border-radius: 4px;
             background: rgba(255, 255, 255, 0.1);
 
-            Rectangle {
+            scroll_ta := TouchArea {
+                width: 100%;
+                height: 100%;
+
+                property <length> pressed_vp_y;
+                property <bool> is_dragging: false;
+
+                pointer-event(event) => {
+                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                        if (self.mouse-y >= thumb.y && self.mouse-y <= thumb.y + thumb.height) {
+                            self.is_dragging = true;
+                            self.pressed_vp_y = flick.viewport-y;
+                        } else {
+                            self.is_dragging = false;
+                        }
+                    }
+                    if (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                        self.is_dragging = false;
+                    }
+                }
+
+                moved => {
+                    if (self.is_dragging && self.pressed) {
+                        let max_scroll_y = parent.height - thumb.height;
+                        if (max_scroll_y > 0px) {
+                            let ratio = (flick.viewport-height - flick.height) / max_scroll_y;
+                            let dy = self.mouse-y - self.pressed-y;
+                            let new_vp_y = self.pressed_vp_y - dy * ratio;
+                            flick.viewport-y = Math.min(0px, Math.max(flick.height - flick.viewport-height, new_vp_y));
+                        }
+                    }
+                }
+            }
+
+            thumb := Rectangle {
                 width: 100%;
                 border-radius: 4px;
                 background: scroll_ta.has-hover ? rgba(255, 255, 255, 0.55) : rgba(255, 255, 255, 0.3);
@@ -161,12 +202,6 @@ export component AppWindow inherits Window {
                 property <length> vp_h: flick.viewport-height;
                 height: Math.max(20px, self.track_h * (flick.height / self.vp_h));
                 y: (flick.viewport-y <= 0) ? (-flick.viewport-y / (self.vp_h - flick.height)) * (self.track_h - self.height) : 0;
-
-                scroll_ta := TouchArea {
-                    width: 100%;
-                    height: 100%;
-                    // Dragging scrollbar not fully implemented here, but mousewheel works on Flickable.
-                }
             }
         }
 
@@ -176,7 +211,9 @@ export component AppWindow inherits Window {
             y: root.height - 32px;
             width: link_text.width;
             height: link_text.height;
-            clicked => { root.open_repo(); }
+            clicked => {
+                root.open_repo();
+            }
 
             link_text := Text {
                 text: "Repo: github.com/Tobiichi-Origuchi/CefDetectorLinux (求个STAR!)";

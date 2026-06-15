@@ -27,16 +27,16 @@ EOF
 git clone ssh://aur@aur.archlinux.org/cefdetector-bin.git aur-repo
 cd aur-repo
 
-DEB_FILE="cefdetector_${RAW_VERSION}_amd64.deb"
-DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${DEB_FILE}"
+PKG_FILE="cefdetector-${RAW_VERSION}-1-x86_64.pkg.tar.zst"
+PKG_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${PKG_FILE}"
 
 echo "Calculating sha256sum..."
-LOCAL_DEB="../src-tauri/target/release/packager/cefdetector_${RAW_VERSION}_amd64.deb"
-if [ ! -f "$LOCAL_DEB" ]; then
-    echo "Error: Local deb file not found at $LOCAL_DEB"
+LOCAL_PKG="../src-tauri/target/release/packager/${PKG_FILE}"
+if [ ! -f "$LOCAL_PKG" ]; then
+    echo "Error: Local pacman package not found at $LOCAL_PKG"
     exit 1
 fi
-SHA256=$(sha256sum "$LOCAL_DEB" | awk '{print $1}')
+SHA256=$(sha256sum "$LOCAL_PKG" | awk '{print $1}')
 
 echo "Generating PKGBUILD..."
 cat <<EOF > PKGBUILD
@@ -47,14 +47,15 @@ pkgdesc="Check how many CEFs are on your Linux."
 arch=('x86_64')
 url="https://github.com/Tobiichi-Origuchi/CefDetectorLinux"
 license=('MIT')
-depends=('webkit2gtk-4.1')
 provides=('cefdetector')
 conflicts=('cefdetector')
-source=("${DEB_FILE}::${DEB_URL}")
+source=("\${pkgname}-\${pkgver}.pkg.tar.zst::${PKG_URL}")
 sha256sums=('${SHA256}')
+noextract=("\${pkgname}-\${pkgver}.pkg.tar.zst")
 
 package() {
-    bsdtar -xf data.tar.gz -C "\$pkgdir/"
+    bsdtar -xf "\${srcdir}/\${pkgname}-\${pkgver}.pkg.tar.zst" -C "\$pkgdir/"
+    rm -f "\${pkgdir}/.MTREE" "\${pkgdir}/.PKGINFO" "\${pkgdir}/.BUILDINFO"
 }
 EOF
 
@@ -67,10 +68,9 @@ pkgbase = cefdetector-bin
 	url = https://github.com/Tobiichi-Origuchi/CefDetectorLinux
 	arch = x86_64
 	license = MIT
-	depends = webkit2gtk-4.1
 	provides = cefdetector
 	conflicts = cefdetector
-	source = ${DEB_FILE}::${DEB_URL}
+	source = ${PKG_FILE}::${PKG_URL}
 	sha256sums = ${SHA256}
 
 pkgname = cefdetector-bin

@@ -1,7 +1,7 @@
 use base64::Engine;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+
 
 pub fn encode_file_to_base64(path: &Path) -> Option<String> {
     if let Ok(data) = fs::read(path) {
@@ -215,34 +215,7 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
     None
 }
 
-pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
-    let path_str = exe_path.to_string_lossy();
-    if !path_str.to_lowercase().ends_with(".appimage") {
-        return None;
-    }
-
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    let tmp_dir = std::env::temp_dir().join(format!("cef_extract_{}", ts));
-    let _ = fs::create_dir_all(&tmp_dir);
-
-    if let Ok(output) = Command::new(&*path_str)
-        .arg("--appimage-extract")
-        .arg(".DirIcon")
-        .current_dir(&tmp_dir)
-        .output()
-        && output.status.success()
-    {
-        let extracted_icon = tmp_dir.join("squashfs-root").join(".DirIcon");
-        let encoded = encode_file_to_base64(&extracted_icon)
-            .map(|b64| format!("data:image/png;base64,{}", b64));
-        let _ = fs::remove_dir_all(&tmp_dir);
-        return encoded;
-    }
-    let _ = fs::remove_dir_all(&tmp_dir);
+pub fn find_icon_via_appimage(_exe_path: &Path) -> Option<String> {
     None
 }
 

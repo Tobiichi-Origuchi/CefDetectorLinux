@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -96,8 +96,8 @@ fn dir_size(dir: &Path, cache: &mut HashSet<u64>, deep: u32) -> u64 {
     total
 }
 
-fn get_running_processes() -> HashMap<String, bool> {
-    let mut procs = HashMap::new();
+fn get_running_processes() -> HashSet<String> {
+    let mut procs = HashSet::new();
     if let Ok(entries) = fs::read_dir("/proc") {
         for entry in entries.flatten() {
             let file_name = entry.file_name();
@@ -105,7 +105,7 @@ fn get_running_processes() -> HashMap<String, bool> {
             if file_name_str.chars().all(char::is_numeric) {
                 let exe_path = entry.path().join("exe");
                 if let Ok(link) = fs::read_link(&exe_path) {
-                    procs.insert(link.to_string_lossy().to_string(), true);
+                    procs.insert(link.to_string_lossy().into_owned());
                 }
             }
         }
@@ -114,7 +114,7 @@ fn get_running_processes() -> HashMap<String, bool> {
 }
 
 fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack.windows(needle.len()).any(|w| w == needle)
+    memchr::memmem::find(haystack, needle).is_some()
 }
 
 pub fn core_search<F>(mut on_found: F)
@@ -122,17 +122,14 @@ where
     F: FnMut(AppInfo),
 {
     let running_procs = get_running_processes();
-    let cache = Arc::new(Mutex::new(HashSet::new()));
-    let dir_cache2 = Arc::new(Mutex::new(HashSet::new()));
+    let mut found_files = HashSet::new();
+    let mut visited_dirs = HashSet::new();
     let mut global_ino_cache = HashSet::new();
 
     let mut add_app = |file: &Path, app_type: &str, is_dir: bool| {
         let file_str = file.to_string_lossy().to_string();
-        {
-            let mut c = cache.lock().unwrap();
-            if !c.insert(file_str.clone()) {
-                return;
-            }
+        if !found_files.insert(file_str.clone()) {
+            return;
         }
         let target_dir = if is_dir {
             file.to_path_buf()
@@ -142,7 +139,7 @@ where
         let size = dir_size(&target_dir, &mut global_ino_cache, 0);
 
         let is_running = if !is_dir {
-            running_procs.contains_key(&file_str)
+            running_procs.contains(&file_str)
         } else {
             false
         };
@@ -172,21 +169,29 @@ where
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let meta = entry.metadata();
-                if meta.is_err() || !meta.unwrap().is_file() {
+                let meta = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                if !meta.is_file() {
                     continue;
                 }
 
                 // On Linux, executable files and .so files are relevant
                 let is_so = path.extension().is_some_and(|e| e == "so");
-                use std::os::unix::fs::PermissionsExt;
-                let is_exec = entry.metadata().unwrap().permissions().mode() & 0o111 != 0;
+                let is_exec = meta.permissions().mode() & 0o111 != 0;
 
                 if !is_so && !is_exec {
                     continue;
                 }
 
-                if let Ok(data) = fs::read(&path) {
+                let file = match fs::File::open(&path) {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+
+                let mmap = unsafe { memmap2::MmapOptions::new().map(&file) };
+                if let Ok(data) = mmap {
                     let typ = if contains_bytes(&data, b"third_party/electron_node")
                         || contains_bytes(&data, b"register_atom_browser_web_contents")
                     {
@@ -224,7 +229,7 @@ where
 
     let mut search_cef = |stdout: Vec<String>, default_type: &str| {
         for file in stdout {
-            if file.contains("Trash") || file.to_lowercase().ends_with(".log") {
+            if file.contains("/.Trash") || file.contains("/Trash/") || file.to_lowercase().ends_with(".log") {
                 continue;
             }
             let path = Path::new(&file);
@@ -234,11 +239,8 @@ where
                 continue;
             };
 
-            {
-                let mut c2 = dir_cache2.lock().unwrap();
-                if !c2.insert(dir.to_string_lossy().to_string()) {
-                    continue;
-                }
+            if !visited_dirs.insert(dir.to_string_lossy().to_string()) {
+                continue;
             }
 
             if path.is_dir() {
@@ -277,7 +279,7 @@ where
 
     let node_dlls = exec_search("libnode.*?\\.so", true);
     for file in node_dlls {
-        if file.contains("Trash") {
+        if file.contains("/.Trash") || file.contains("/Trash/") {
             continue;
         }
         let path = Path::new(&file);
@@ -293,28 +295,33 @@ where
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let meta = entry.metadata();
-                if meta.is_err() || !meta.unwrap().is_file() {
+                let meta = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                if !meta.is_file() {
                     continue;
                 }
                 // check executables or .so
-                use std::os::unix::fs::PermissionsExt;
-                let is_exec = entry.metadata().unwrap().permissions().mode() & 0o111 != 0;
+                let is_exec = meta.permissions().mode() & 0o111 != 0;
                 let is_so = path.extension().is_some_and(|e| e == "so");
 
-                if (is_exec || is_so)
-                    && let Ok(data) = fs::read(&path)
-                {
-                    let typ = if contains_bytes(&data, b"napi_create_buffer") {
-                        "Mini Electron"
-                    } else if contains_bytes(&data, b"miniblink") {
-                        "Mini Blink"
-                    } else {
-                        continue;
-                    };
+                if is_exec || is_so {
+                    if let Ok(file_handle) = fs::File::open(&path) {
+                        let mmap = unsafe { memmap2::MmapOptions::new().map(&file_handle) };
+                        if let Ok(data) = mmap {
+                            let typ = if contains_bytes(&data, b"napi_create_buffer") {
+                                "Mini Electron"
+                            } else if contains_bytes(&data, b"miniblink") {
+                                "Mini Blink"
+                            } else {
+                                continue;
+                            };
 
-                    add_app(&path, typ, false);
-                    break;
+                            add_app(&path, typ, false);
+                            break;
+                        }
+                    }
                 }
             }
         }

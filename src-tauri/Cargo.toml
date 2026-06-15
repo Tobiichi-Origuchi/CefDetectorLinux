@@ -10,9 +10,7 @@ rust-version = "1.96.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-name = "app_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
@@ -28,3 +26,5 @@ base64 = "0.22"
 pelite = "0.10"
 ignore = "0.4"
 regex = "1.12"
+memchr = "2.8.2"
+memmap2 = "0.9.10"

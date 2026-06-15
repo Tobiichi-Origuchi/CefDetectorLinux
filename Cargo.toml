@@ -10,8 +10,6 @@ rust-version = "1.96.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-
-
 [build-dependencies]
 slint-build = "1.9.0"
 
@@ -23,11 +21,11 @@ base64 = "0.22"
 pelite = "0.10"
 ignore = "0.4"
 regex = "1.12"
-memchr = "2.8.2"
-memmap2 = "0.9.10"
+memchr = "2.8"
+memmap2 = "0.9"
 slint = "1.9.0"
-backhand = "0.25.1"
-image = "0.25.10"
+backhand = "0.25"
+image = "0.25"
 
 [package.metadata.packager]
 identifier = "com.cefdetector.linux"

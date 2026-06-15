@@ -22,7 +22,7 @@ jobs:
 
       - name: Build and Package
         run: |
-          cargo install cargo-packager
+          cargo install cargo-packager --locked
           cargo build --release
           cargo packager --release
 

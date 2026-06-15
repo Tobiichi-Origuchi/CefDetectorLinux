@@ -32,10 +32,13 @@ image = "0.25.10"
 [package.metadata.packager]
 identifier = "com.cefdetector.linux"
 category = "Utility"
-short-description = "Check how many CEFs are on your Linux."
+description = "Check how many CEFs are on your Linux."
 icons = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
 formats = ["deb", "appimage", "pacman"]
 out-dir = "target/release/packager"
 
 [package.metadata.packager.deb]
-files = { "/usr/share/bash-completion/completions/cefdetector" = "completions/cefdetector.bash", "/usr/share/zsh/vendor-completions/_cefdetector" = "completions/cefdetector.zsh", "/usr/share/fish/vendor_completions.d/cefdetector.fish" = "completions/cefdetector.fish" }
+files = { "completions/cefdetector.bash" = "/usr/share/bash-completion/completions/cefdetector", "completions/cefdetector.zsh" = "/usr/share/zsh/vendor-completions/_cefdetector", "completions/cefdetector.fish" = "/usr/share/fish/vendor_completions.d/cefdetector.fish" }
+
+[package.metadata.packager.pacman]
+files = { "completions/cefdetector.bash" = "/usr/share/bash-completion/completions/cefdetector", "completions/cefdetector.zsh" = "/usr/share/zsh/vendor-completions/_cefdetector", "completions/cefdetector.fish" = "/usr/share/fish/vendor_completions.d/cefdetector.fish" }

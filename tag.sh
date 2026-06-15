@@ -17,15 +17,13 @@ fi
 RAW_VERSION=${VERSION#v}
 
 echo "Updating versions to $RAW_VERSION..."
-sed -i "0,/^version = \".*\"/s/^version = \".*\"/version = \"$RAW_VERSION\"/" src-tauri/Cargo.toml
+sed -i "0,/^version = \".*\"/s/^version = \".*\"/version = \"$RAW_VERSION\"/" Cargo.toml
 
 echo "Updating Cargo.lock..."
-cd src-tauri
 cargo check
-cd ..
 
 echo "Committing files..."
-git add src-tauri/Cargo.toml src-tauri/Cargo.lock
+git add Cargo.toml Cargo.lock
 git commit -m "$VERSION"
 
 echo "Creating tag $VERSION..."

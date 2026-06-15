@@ -31,7 +31,7 @@ PKG_FILE="cefdetector_${RAW_VERSION}_x86_64.tar.gz"
 PKG_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${PKG_FILE}"
 
 echo "Calculating sha256sum..."
-LOCAL_PKG="../src-tauri/target/release/packager/${PKG_FILE}"
+LOCAL_PKG="../target/release/packager/${PKG_FILE}"
 if [ ! -f "$LOCAL_PKG" ]; then
     echo "Error: Local pacman package not found at $LOCAL_PKG"
     exit 1

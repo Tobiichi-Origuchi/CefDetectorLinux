@@ -20,14 +20,14 @@ jobs:
       - name: Build and Package
         run: |
           cargo install cargo-packager --locked
-          cd src-tauri && cargo packager --release
+          cargo packager --release
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/packager/*.deb
-            src-tauri/target/release/packager/*_x86_64.tar.gz
+            target/release/packager/*.deb
+            target/release/packager/*_x86_64.tar.gz
 
       - name: Publish to AUR
         env:

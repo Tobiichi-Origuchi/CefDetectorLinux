@@ -9,8 +9,8 @@ fi
 
 VERSION=$1
 
-if [[ $VERSION != v* ]]; then
-  echo "Error: Version must start with 'v' (e.g. v0.1.0)"
+if [[ ! $VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Error: Version must be in vX.Y.Z format (e.g. v0.1.0)"
   exit 1
 fi
 

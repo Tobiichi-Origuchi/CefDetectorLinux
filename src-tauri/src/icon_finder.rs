@@ -2,7 +2,6 @@ use base64::Engine;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-
 pub fn encode_file_to_base64(path: &Path) -> Option<String> {
     if let Ok(data) = fs::read(path) {
         return Some(base64::engine::general_purpose::STANDARD.encode(data));
@@ -215,7 +214,75 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
     None
 }
 
-pub fn find_icon_via_appimage(_exe_path: &Path) -> Option<String> {
+pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    use backhand::{InnerNode, Squashfs};
+    use memmap2::MmapOptions;
+
+    let path_str = exe_path.to_string_lossy();
+    if !path_str.to_lowercase().ends_with(".appimage") {
+        return None;
+    }
+
+    let mut file = fs::File::open(exe_path).ok()?;
+    let mmap = unsafe { MmapOptions::new().map(&file).ok()? };
+
+    // Find squashfs magic 'hsqs'
+    let offset = memchr::memmem::find(&mmap, b"hsqs")?;
+
+    file.seek(SeekFrom::Start(offset as u64)).ok()?;
+
+    let mut buf_reader = std::io::BufReader::new(file);
+    let squashfs = Squashfs::from_reader(&mut buf_reader).ok()?;
+    let fs_reader = squashfs.into_filesystem_reader().ok()?;
+
+    let mut target_path = PathBuf::from("/.DirIcon");
+    let mut resolved_node = None;
+
+    for _ in 0..5 {
+        let node = fs_reader.files().find(|n| n.fullpath == target_path);
+        
+        if let Some(n) = node {
+            match &n.inner {
+                InnerNode::Symlink(sym) => {
+                    let link = PathBuf::from(&sym.link);
+                    if link.has_root() {
+                        target_path = link;
+                    } else {
+                        target_path = target_path.parent().unwrap_or_else(|| Path::new("/")).join(link);
+                    }
+                }
+                InnerNode::File(_) => {
+                    resolved_node = Some(n.clone());
+                    break;
+                }
+                _ => break,
+            }
+        } else {
+            break;
+        }
+    }
+
+    if let Some(n) = resolved_node {
+        if let InnerNode::File(file_node) = &n.inner {
+            let mut reader = fs_reader.file(file_node).reader();
+            let mut bytes = Vec::new();
+            if reader.read_to_end(&mut bytes).is_ok() {
+                let ext = target_path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("png")
+                    .to_lowercase();
+                let mime = match ext.as_str() {
+                    "svg" => "image/svg+xml",
+                    _ => "image/png",
+                };
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Some(format!("data:{};base64,{}", mime, encoded));
+            }
+        }
+    }
+
     None
 }
 

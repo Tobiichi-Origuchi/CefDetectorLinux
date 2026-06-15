@@ -229,7 +229,10 @@ where
 
     let mut search_cef = |stdout: Vec<String>, default_type: &str| {
         for file in stdout {
-            if file.contains("/.Trash") || file.contains("/Trash/") || file.to_lowercase().ends_with(".log") {
+            if file.contains("/.Trash")
+                || file.contains("/Trash/")
+                || file.to_lowercase().ends_with(".log")
+            {
                 continue;
             }
             let path = Path::new(&file);
@@ -306,21 +309,21 @@ where
                 let is_exec = meta.permissions().mode() & 0o111 != 0;
                 let is_so = path.extension().is_some_and(|e| e == "so");
 
-                if is_exec || is_so {
-                    if let Ok(file_handle) = fs::File::open(&path) {
-                        let mmap = unsafe { memmap2::MmapOptions::new().map(&file_handle) };
-                        if let Ok(data) = mmap {
-                            let typ = if contains_bytes(&data, b"napi_create_buffer") {
-                                "Mini Electron"
-                            } else if contains_bytes(&data, b"miniblink") {
-                                "Mini Blink"
-                            } else {
-                                continue;
-                            };
+                if (is_exec || is_so)
+                    && let Ok(file_handle) = fs::File::open(&path)
+                {
+                    let mmap = unsafe { memmap2::MmapOptions::new().map(&file_handle) };
+                    if let Ok(data) = mmap {
+                        let typ = if contains_bytes(&data, b"napi_create_buffer") {
+                            "Mini Electron"
+                        } else if contains_bytes(&data, b"miniblink") {
+                            "Mini Blink"
+                        } else {
+                            continue;
+                        };
 
-                            add_app(&path, typ, false);
-                            break;
-                        }
+                        add_app(&path, typ, false);
+                        break;
                     }
                 }
             }

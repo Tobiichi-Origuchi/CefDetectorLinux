@@ -4,7 +4,7 @@ Check how many CEFs are on your Linux
 
 **【使用 Rust & Tauri 编写，专为 Linux 打造】**
 
-看看你电脑 **(Linux)** 上有多少个 [CEF (Chromium Embedded Framework)](https://bitbucket.org/chromiumembedded/cef/)
+看看你电脑 **(Linux)** 上有多少个 [CEF (Chromium Embedded Framework)](https://github.com/chromiumembedded/cef)
 
 > **Note**
 > 欢迎你把程序截图发到 [Discussions](https://github.com/Tobiichi-Origuchi/CefDetectorLinux/discussions) 中, 看看谁才是真的 **《超级CEF王》**
@@ -47,7 +47,7 @@ cefdetector --json
 
 ## 特性
 
-- 检测 CEF 的类型: 如 [libcef](https://bitbucket.org/chromiumembedded/cef/src/master/)、[Electron](https://www.electronjs.org/)、[NWJS](https://nwjs.io/)、[CefSharp](http://cefsharp.github.io/)、[MiniBlink](https://github.com/weolar/miniblink49)、[MiniElectron](https://github.com/weolar/miniblink49)、[Edge](https://www.microsoft.com/en-us/edge) 和 [Chrome](https://www.google.com/chrome/)
+- 检测 CEF 的类型: 如 [libcef](https://github.com/chromiumembedded/cef)、[Electron](https://www.electronjs.org/)、[NWJS](https://nwjs.io/)、[CefSharp](http://cefsharp.github.io/)、[MiniBlink](https://github.com/weolar/miniblink49)、[MiniElectron](https://github.com/weolar/miniblink49)、[Edge](https://www.microsoft.com/en-us/edge) 和 [Chrome](https://www.google.com/chrome/)
 - 检测应用图标: 通过解析 PE、AppImage、同级目录、快捷方式、包管理器（目前仅支持 APT/Pacman/RPM/Portage/Flatpak/Snap/Nix/Brew）
 - 显示总空间占用
 - 显示当前所运行的进程 (绿色文件名)

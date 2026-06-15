@@ -47,19 +47,6 @@ fn load_image_from_base64(b64: &str) -> Image {
     Image::default()
 }
 
-// A helper struct that is Send
-#[derive(Clone)]
-struct TrackedApp {
-    file_str: String,
-    app_type_str: String,
-    size_str: String,
-    is_running: bool,
-    is_dir: bool,
-    icon_b64: String,
-    filename: String,
-    size: u64,
-}
-
 fn main() -> Result<(), slint::PlatformError> {
     cli::handle_cli();
 
@@ -86,7 +73,6 @@ fn main() -> Result<(), slint::PlatformError> {
     std::thread::spawn(move || {
         let mut cnt = 0;
         let mut total_size = 0;
-        let mut tracked_apps: Vec<TrackedApp> = Vec::new();
 
         core_search(|info| {
             cnt += 1;
@@ -105,47 +91,47 @@ fn main() -> Result<(), slint::PlatformError> {
                 .to_string_lossy()
                 .into_owned();
 
-            let icon_b64 = get_app_icon(file_str.clone());
-            let size_str = format_size(size);
-
-            tracked_apps.push(TrackedApp {
-                file_str,
-                app_type_str,
-                size_str,
-                is_running,
-                is_dir,
-                icon_b64,
-                filename,
-                size,
-            });
-
-            // Sort descending by size
-            tracked_apps.sort_by_key(|b| std::cmp::Reverse(b.size));
-
-            // Clone items to send to UI thread
-            let items_to_send: Vec<TrackedApp> = tracked_apps.clone();
-
             let ui_handle_cb = ui_handle_clone.clone();
             let current_cnt = cnt;
             let current_total = total_size;
 
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_handle_cb.upgrade() {
-                    let mut app_items = Vec::new();
-                    for a in items_to_send {
-                        let icon = load_image_from_base64(&a.icon_b64);
-                        app_items.push(AppItem {
-                            file: SharedString::from(a.file_str),
-                            app_type: SharedString::from(a.app_type_str),
-                            size_str: SharedString::from(a.size_str),
-                            is_running: a.is_running,
-                            is_dir: a.is_dir,
-                            icon,
-                            filename: SharedString::from(a.filename),
-                        });
+                    let icon_b64 = get_app_icon(file_str.clone());
+                    let icon = load_image_from_base64(&icon_b64);
+                    let size_str = format_size(size);
+
+                    let raw_size_kb = (size / 1024) as i32;
+
+                    let new_item = AppItem {
+                        file: SharedString::from(file_str),
+                        app_type: SharedString::from(app_type_str),
+                        size_str: SharedString::from(size_str),
+                        is_running,
+                        is_dir,
+                        icon,
+                        filename: SharedString::from(filename),
+                        raw_size: raw_size_kb,
+                    };
+
+                    let model = ui.get_apps();
+                    use slint::Model;
+                    if let Some(vec_model) =
+                        model.as_any().downcast_ref::<slint::VecModel<AppItem>>()
+                    {
+                        let mut insert_idx = 0;
+                        use slint::Model;
+                        let count = vec_model.row_count();
+                        while insert_idx < count {
+                            if let Some(item) = vec_model.row_data(insert_idx)
+                                && item.raw_size < raw_size_kb
+                            {
+                                break;
+                            }
+                            insert_idx += 1;
+                        }
+                        vec_model.insert(insert_idx, new_item);
                     }
-                    let new_model = Rc::new(VecModel::from(app_items));
-                    ui.set_apps(ModelRc::from(new_model));
 
                     let status = format!(
                         "这台电脑上已找到 {} 个 Chromium 内核的应用 ({}) - 搜索中...",

@@ -17,13 +17,7 @@ fi
 RAW_VERSION=${VERSION#v}
 
 echo "Updating versions to $RAW_VERSION..."
-sed -i "0,/\"version\": \".*\"/s/\"version\": \".*\"/\"version\": \"$RAW_VERSION\"/" package.json
-sed -i "0,/\"version\": \".*\"/s/\"version\": \".*\"/\"version\": \"$RAW_VERSION\"/" src/package.json
-sed -i "0,/\"version\": \".*\"/s/\"version\": \".*\"/\"version\": \"$RAW_VERSION\"/" src-tauri/tauri.conf.json
 sed -i "0,/^version = \".*\"/s/^version = \".*\"/version = \"$RAW_VERSION\"/" src-tauri/Cargo.toml
-
-echo "Updating package-lock.json..."
-npm i
 
 echo "Updating Cargo.lock..."
 cd src-tauri
@@ -31,7 +25,7 @@ cargo check
 cd ..
 
 echo "Committing files..."
-git add package.json package-lock.json src/package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+git add src-tauri/Cargo.toml src-tauri/Cargo.lock
 git commit -m "$VERSION"
 
 echo "Creating tag $VERSION..."

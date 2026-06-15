@@ -27,15 +27,17 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build
-        run: npm run build
+      - name: Build and Package
+        run: |
+          cargo install cargo-packager --locked
+          cd src-tauri && cargo packager --release
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            src-tauri/target/release/bundle/deb/*.deb
-            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/packager/*.deb
+            src-tauri/target/release/packager/*.rpm
 
       - name: Publish to AUR
         env:

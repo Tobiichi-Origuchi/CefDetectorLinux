@@ -4,12 +4,9 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use tauri::{AppHandle, Emitter};
 
 use crate::models::AppInfo;
 
-#[tauri::command]
 pub fn open_path(path: String, is_dir: bool) {
     if is_dir {
         let _ = Command::new("xdg-open").arg(path).spawn();
@@ -331,12 +328,4 @@ where
     }
 }
 
-#[tauri::command]
-pub fn start_search(app: AppHandle) {
-    thread::spawn(move || {
-        core_search(|info| {
-            let _ = app.emit("app-found", info);
-        });
-        let _ = app.emit("search-done", ());
-    });
-}
+// pub fn start_search(app: AppHandle) { ... }

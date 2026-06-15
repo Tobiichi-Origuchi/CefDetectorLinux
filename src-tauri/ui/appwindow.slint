@@ -1,0 +1,88 @@
+import { ListView } from "std-widgets.slint";
+
+export struct AppItem {
+    file: string,
+    app_type: string,
+    size_str: string,
+    is_running: bool,
+    is_dir: bool,
+    icon: image,
+    filename: string,
+}
+
+export component AppWindow inherits Window {
+    title: "CEF Detector Linux";
+    width: 800px;
+    height: 600px;
+    background: #1e1e1e;
+    
+    in property <string> search_status: "正在全盘搜索 CEF 应用，请耐心等待...";
+    in property <[AppItem]> apps: [];
+    callback open_path(string, bool);
+    callback open_repo();
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 10px;
+
+        Text {
+            text: root.search_status;
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            horizontal-alignment: center;
+        }
+
+        ListView {
+            for app in root.apps : VerticalLayout {
+                padding-bottom: 8px;
+                Rectangle {
+                    height: 60px;
+                    background: ta.has-hover ? #333333 : #252525;
+                    border-radius: 8px;
+
+                    ta := TouchArea {
+                        clicked => { root.open_path(app.file, app.is_dir); }
+                    }
+
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 15px;
+                        Image {
+                            source: app.icon;
+                            width: 40px;
+                            height: 40px;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Text {
+                                text: app.filename;
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: app.is_running ? #4caf50 : #ffffff;
+                            }
+                            Text {
+                                text: app.app_type + " • " + app.size_str;
+                                font-size: 12px;
+                                color: #aaaaaa;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                ta_repo := TouchArea {
+                    clicked => { root.open_repo(); }
+                }
+                Text {
+                    text: "Repo: github.com/Tobiichi-Origuchi/CefDetectorLinux (求个STAR!)";
+                    color: ta_repo.has-hover ? #ffffff : #888888;
+                }
+            }
+        }
+    }
+}

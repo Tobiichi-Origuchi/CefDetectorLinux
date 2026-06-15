@@ -13,19 +13,34 @@ rust-version = "1.96.0"
 
 
 [build-dependencies]
-tauri-build = { version = "2.6.2", features = [] }
+slint-build = "1.9.0"
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.11.2", features = [] }
-tauri-plugin-log = "2"
-tauri-plugin-single-instance = "2.4"
 base64 = "0.22"
 pelite = "0.10"
 ignore = "0.4"
 regex = "1.12"
 memchr = "2.8.2"
 memmap2 = "0.9.10"
+slint = "1.9.0"
 backhand = "0.25.1"
+image = "0.25.10"
+
+[package.metadata.packager]
+identifier = "com.cefdetector.linux"
+category = "Utility"
+short-description = "Check how many CEFs are on your Linux."
+icons = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+formats = ["deb", "rpm"]
+out-dir = "target/release/packager"
+
+[package.metadata.packager.deb]
+depends = ["libwebkit2gtk-4.1-0"]
+files = { "/usr/share/bash-completion/completions/cefdetector" = "completions/cefdetector.bash", "/usr/share/zsh/vendor-completions/_cefdetector" = "completions/cefdetector.zsh", "/usr/share/fish/vendor_completions.d/cefdetector.fish" = "completions/cefdetector.fish" }
+
+[package.metadata.packager.rpm]
+depends = ["webkit2gtk4.1"]
+files = { "/usr/share/bash-completion/completions/cefdetector" = "completions/cefdetector.bash", "/usr/share/zsh/vendor-completions/_cefdetector" = "completions/cefdetector.zsh", "/usr/share/fish/vendor_completions.d/cefdetector.fish" = "completions/cefdetector.fish" }

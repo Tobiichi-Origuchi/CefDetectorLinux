@@ -27,11 +27,11 @@ EOF
 git clone ssh://aur@aur.archlinux.org/cefdetector-bin.git aur-repo
 cd aur-repo
 
-DEB_FILE="CefDetector_${RAW_VERSION}_amd64.deb"
+DEB_FILE="cefdetector_${RAW_VERSION}_amd64.deb"
 DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download/v${RAW_VERSION}/${DEB_FILE}"
 
 echo "Calculating sha256sum..."
-LOCAL_DEB="../src-tauri/target/release/bundle/deb/CefDetector_${RAW_VERSION}_amd64.deb"
+LOCAL_DEB="../src-tauri/target/release/packager/cefdetector_${RAW_VERSION}_amd64.deb"
 if [ ! -f "$LOCAL_DEB" ]; then
     echo "Error: Local deb file not found at $LOCAL_DEB"
     exit 1

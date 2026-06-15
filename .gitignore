@@ -1,1 +1,8 @@
 node_modules/
+src-tauri/target/
+.vscode/
+.idea/
+dist/
+*.swp
+*~
+.DS_Store

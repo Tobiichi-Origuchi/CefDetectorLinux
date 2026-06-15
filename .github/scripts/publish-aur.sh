@@ -33,6 +33,7 @@ DEB_URL="https://github.com/Tobiichi-Origuchi/CefDetectorLinux/releases/download
 echo "Calculating sha256sum..."
 LOCAL_DEB="../src-tauri/target/release/bundle/deb/CefDetector_${RAW_VERSION}_amd64.deb"
 if [ ! -f "$LOCAL_DEB" ]; then
+    echo "Error: Local deb file not found at $LOCAL_DEB"
     exit 1
 fi
 SHA256=$(sha256sum "$LOCAL_DEB" | awk '{print $1}')

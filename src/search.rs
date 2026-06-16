@@ -20,56 +20,77 @@ pub fn open_path(path: String, is_dir: bool) {
 use ignore::{WalkBuilder, WalkState};
 use regex::Regex;
 
-fn exec_search(regex_pattern: &str, is_regex: bool) -> Vec<String> {
-    let re = if is_regex {
-        Regex::new(regex_pattern).ok()
-    } else {
-        let escaped = regex::escape(regex_pattern);
-        Regex::new(&escaped).ok()
-    };
+struct ScanResults {
+    pak_files: Vec<String>,  // _100_*.pak
+    cef_files: Vec<String>,  // libcef*
+    node_files: Vec<String>, // libnode*.so
+}
 
-    let re = match re {
-        Some(r) => r,
-        None => return vec![],
-    };
+fn single_pass_scan() -> ScanResults {
+    let re_pak = Regex::new(r"_100_(.+?)\.pak$").unwrap();
+    let re_cef = Regex::new(r"libcef").unwrap();
+    let re_node = Regex::new(r"libnode.*?\.so").unwrap();
 
-    let results = Arc::new(Mutex::new(Vec::new()));
+    let pak_results = Arc::new(Mutex::new(Vec::new()));
+    let cef_results = Arc::new(Mutex::new(Vec::new()));
+    let node_results = Arc::new(Mutex::new(Vec::new()));
 
     let mut builder = WalkBuilder::new("/");
     builder
+        .standard_filters(false)
         .hidden(false)
-        .git_exclude(false)
+        .threads(6)
         .filter_entry(|entry| {
             let path = entry.path();
-            // Exclude special file systems
-            if path.starts_with("/proc") || path.starts_with("/sys") || path.starts_with("/dev") {
-                return false;
-            }
-            true
+            !(path.starts_with("/proc")
+                || path.starts_with("/sys")
+                || path.starts_with("/dev")
+                || path.starts_with("/run")
+                || path.starts_with("/tmp")
+                || path.starts_with("/boot")
+                || path.starts_with("/lost+found"))
         });
 
     builder.build_parallel().run(|| {
-        let results = Arc::clone(&results);
-        let re = re.clone();
+        let pak = Arc::clone(&pak_results);
+        let cef = Arc::clone(&cef_results);
+        let node = Arc::clone(&node_results);
+        let re_p = re_pak.clone();
+        let re_c = re_cef.clone();
+        let re_n = re_node.clone();
+
         Box::new(move |result| {
             if let Ok(entry) = result
                 && let Some(file_type) = entry.file_type()
                 && file_type.is_file()
             {
                 let name = entry.file_name().to_string_lossy();
-                if re.is_match(&name) {
-                    let mut res = results.lock().unwrap();
-                    res.push(entry.path().to_string_lossy().to_string());
+                let matched_pak = re_p.is_match(&name);
+                let matched_cef = re_c.is_match(&name);
+                let matched_node = re_n.is_match(&name);
+
+                if matched_pak || matched_cef || matched_node {
+                    let path_str = entry.path().to_string_lossy().to_string();
+                    if matched_pak {
+                        pak.lock().unwrap().push(path_str.clone());
+                    }
+                    if matched_cef {
+                        cef.lock().unwrap().push(path_str.clone());
+                    }
+                    if matched_node {
+                        node.lock().unwrap().push(path_str);
+                    }
                 }
             }
             WalkState::Continue
         })
     });
 
-    let mut res = results.lock().unwrap();
-    let mut final_res = Vec::new();
-    std::mem::swap(&mut *res, &mut final_res);
-    final_res
+    ScanResults {
+        pak_files: std::mem::take(&mut *pak_results.lock().unwrap()),
+        cef_files: std::mem::take(&mut *cef_results.lock().unwrap()),
+        node_files: std::mem::take(&mut *node_results.lock().unwrap()),
+    }
 }
 
 fn dir_size(dir: &Path, cache: &mut HashSet<u64>, deep: u32) -> u64 {
@@ -274,10 +295,12 @@ where
         }
     };
 
-    search_cef(exec_search("_100_(.+?)\\.pak$", true), "Unknown");
-    search_cef(exec_search("libcef", false), "CEF");
+    let scan = single_pass_scan();
 
-    let node_dlls = exec_search("libnode.*?\\.so", true);
+    search_cef(scan.pak_files, "Unknown");
+    search_cef(scan.cef_files, "CEF");
+
+    let node_dlls = scan.node_files;
     for file in node_dlls {
         if file.contains("/.Trash") || file.contains("/Trash/") {
             continue;
@@ -327,5 +350,3 @@ where
         }
     }
 }
-
-// pub fn start_search(app: AppHandle) { ... }

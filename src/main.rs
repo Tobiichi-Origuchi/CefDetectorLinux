@@ -56,6 +56,11 @@ fn main() -> Result<(), slint::PlatformError> {
     cli::handle_cli();
 
     let ui = AppWindow::new()?;
+
+    if let Err(e) = slint::set_xdg_app_id("cefdetector") {
+        eprintln!("Warning: Failed to set XDG app ID: {:?}", e);
+    }
+
     let ui_handle = ui.as_weak();
 
     let apps_model = Rc::new(VecModel::default());

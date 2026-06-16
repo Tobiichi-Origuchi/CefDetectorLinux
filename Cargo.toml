@@ -11,7 +11,7 @@ rust-version = "1.96.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-slint-build = "1.9.0"
+slint-build = "1.16"
 
 [dependencies]
 serde_json = "1.0"
@@ -22,13 +22,13 @@ ignore = "0.4"
 regex = "1.12"
 memchr = "2.8"
 memmap2 = "0.9"
-slint = "1.9.0"
 backhand = "0.25"
 image = { version = "0.25", default-features = false, features = ["png", "ico", "webp"] }
 mimalloc = "0.1"
+slint = "1.16"
 
 [package.metadata.packager]
-identifier = "com.cefdetector.linux"
+identifier = "cefdetector"
 category = "Utility"
 description = "Check how many CEFs are on your Linux."
 icons = ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]

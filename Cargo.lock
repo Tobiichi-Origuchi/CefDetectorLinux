@@ -759,7 +759,7 @@ dependencies = [
 
 [[package]]
 name = "cefdetector"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "backhand",
  "ignore",

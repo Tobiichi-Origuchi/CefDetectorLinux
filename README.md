@@ -45,6 +45,21 @@ cefdetector --json
 
 使用 `cefdetector --help` 查看更多用法
 
+### 忽略目录
+
+通过创建一个配置文件来忽略特定目录
+
+例如在 `~/.config/cefdetector/.ignore`（或 `$XDG_CONFIG_HOME/cefdetector/.ignore`）中：
+
+```gitignore
+# 忽略目录名称（跳过所有名为 target 和 node_modules 的目录）
+target
+node_modules
+
+# 忽略绝对路径
+/home/user/myproject/build
+```
+
 ## 特性
 
 - 检测 CEF 的类型: 如 [libcef](https://github.com/chromiumembedded/cef)、[Electron](https://www.electronjs.org/)、[NWJS](https://nwjs.io/)、[CefSharp](http://cefsharp.github.io/)、[MiniBlink](https://github.com/weolar/miniblink49)、[MiniElectron](https://github.com/weolar/miniblink49)、[Edge](https://www.microsoft.com/en-us/edge) 和 [Chrome](https://www.google.com/chrome/)

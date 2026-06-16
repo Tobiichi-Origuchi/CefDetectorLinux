@@ -20,6 +20,42 @@ pub fn open_path(path: String, is_dir: bool) {
 use ignore::{WalkBuilder, WalkState};
 use regex::Regex;
 
+struct IgnoreConfig {
+    dir_names: HashSet<String>,
+    abs_paths: HashSet<PathBuf>,
+}
+
+fn load_ignore_config() -> IgnoreConfig {
+    let mut config = IgnoreConfig {
+        dir_names: HashSet::new(),
+        abs_paths: HashSet::new(),
+    };
+
+    let config_dir = std::env::var("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_default();
+            PathBuf::from(home).join(".config")
+        });
+
+    let ignore_file = config_dir.join("cefdetector").join(".ignore");
+    if let Ok(content) = std::fs::read_to_string(ignore_file) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if line.starts_with('/') {
+                config.abs_paths.insert(PathBuf::from(line));
+            } else {
+                config.dir_names.insert(line.to_string());
+            }
+        }
+    }
+
+    config
+}
+
 struct ScanResults {
     pak_files: Vec<String>,  // _100_*.pak
     cef_files: Vec<String>,  // libcef*
@@ -35,20 +71,41 @@ fn single_pass_scan() -> ScanResults {
     let cef_results = Arc::new(Mutex::new(Vec::new()));
     let node_results = Arc::new(Mutex::new(Vec::new()));
 
+    let ignore_config = load_ignore_config();
+
     let mut builder = WalkBuilder::new("/");
     builder
         .standard_filters(false)
         .hidden(false)
         .threads(6)
-        .filter_entry(|entry| {
+        .filter_entry(move |entry| {
             let path = entry.path();
-            !(path.starts_with("/proc")
+            if path.starts_with("/proc")
                 || path.starts_with("/sys")
                 || path.starts_with("/dev")
                 || path.starts_with("/run")
                 || path.starts_with("/tmp")
                 || path.starts_with("/boot")
-                || path.starts_with("/lost+found"))
+                || path.starts_with("/lost+found")
+            {
+                return false;
+            }
+
+            // User-defined exclusions
+            if entry.file_type().is_some_and(|ft| ft.is_dir()) {
+                if ignore_config.abs_paths.contains(path) {
+                    return false;
+                }
+                if let Some(name) = path.file_name()
+                    && ignore_config
+                        .dir_names
+                        .contains(name.to_string_lossy().as_ref())
+                {
+                    return false;
+                }
+            }
+
+            true
         });
 
     builder.build_parallel().run(|| {

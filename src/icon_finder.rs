@@ -312,24 +312,26 @@ pub fn get_app_icon(path: String) -> RawIcon {
     }
 
     if let Some(p) = crate::package_manager::find_icon_via_package_manager(exe_path)
-        && let Some(bytes) = read_file_bytes(&p) {
-            let ext = p.extension().unwrap_or_default().to_string_lossy();
-            if ext == "svg" {
-                return RawIcon::Svg(bytes);
-            } else {
-                return RawIcon::PngOrIco(bytes);
-            }
+        && let Some(bytes) = read_file_bytes(&p)
+    {
+        let ext = p.extension().unwrap_or_default().to_string_lossy();
+        if ext == "svg" {
+            return RawIcon::Svg(bytes);
+        } else {
+            return RawIcon::PngOrIco(bytes);
         }
+    }
 
     if let Some(p) = find_icon_via_desktop_file(exe_path)
-        && let Some(bytes) = read_file_bytes(&p) {
-            let ext = p.extension().unwrap_or_default().to_string_lossy();
-            if ext == "svg" {
-                return RawIcon::Svg(bytes);
-            } else {
-                return RawIcon::PngOrIco(bytes);
-            }
+        && let Some(bytes) = read_file_bytes(&p)
+    {
+        let ext = p.extension().unwrap_or_default().to_string_lossy();
+        if ext == "svg" {
+            return RawIcon::Svg(bytes);
+        } else {
+            return RawIcon::PngOrIco(bytes);
         }
+    }
 
     RawIcon::PngOrIco(include_bytes!("default_cef_icon.ico").to_vec())
 }

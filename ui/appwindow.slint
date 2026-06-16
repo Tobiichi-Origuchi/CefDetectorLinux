@@ -86,8 +86,9 @@ component AppCard inherits Rectangle {
 
 export component AppWindow inherits Window {
     title: "CEF Detector Linux";
-    width: 800px;
-    height: 600px;
+    icon: @image-url("../icons/128x128.png");
+    preferred-width: 800px;
+    preferred-height: 600px;
 
     in property <string> search_status: "正在全盘搜索 CEF 应用，请耐心等待...";
     in property <bool> search_done: false;

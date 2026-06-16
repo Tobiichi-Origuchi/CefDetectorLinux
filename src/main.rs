@@ -3,13 +3,15 @@
 slint::include_modules!();
 
 mod cli;
-mod icon_finder;
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+pub mod icon_finder;
 pub mod models;
 pub mod package_manager;
 pub mod search;
 
-use base64::Engine;
-use icon_finder::get_app_icon;
+use icon_finder::{RawIcon, get_app_icon};
 use search::core_search;
 use slint::{Image, ModelRc, SharedString, VecModel};
 use std::rc::Rc;
@@ -28,23 +30,26 @@ fn format_size(len: u64) -> String {
     format!("{:.2} {}", val, sizes[order])
 }
 
-fn load_image_from_base64(b64: &str) -> Image {
-    if let Some(data) = b64.split(',').nth(1)
-        && let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data)
-    {
-        if b64.starts_with("data:image/svg+xml") {
-            return Image::load_from_svg_data(&bytes).unwrap_or_default();
-        } else if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
-            let rgba = dynamic_image.into_rgba8();
-            let buffer = slint::SharedPixelBuffer::clone_from_slice(
-                rgba.as_raw(),
-                rgba.width(),
-                rgba.height(),
-            );
-            return Image::from_rgba8(buffer);
+fn load_image_from_raw(raw: RawIcon) -> Image {
+    match raw {
+        RawIcon::Svg(bytes) => Image::load_from_svg_data(&bytes).unwrap_or_default(),
+        RawIcon::PngOrIco(bytes) => {
+            if let Ok(mut dynamic_image) = image::load_from_memory(&bytes) {
+                if dynamic_image.width() > 64 || dynamic_image.height() > 64 {
+                    dynamic_image = dynamic_image.thumbnail(64, 64);
+                }
+                let rgba = dynamic_image.into_rgba8();
+                let buffer = slint::SharedPixelBuffer::clone_from_slice(
+                    rgba.as_raw(),
+                    rgba.width(),
+                    rgba.height(),
+                );
+                return Image::from_rgba8(buffer);
+            }
+            Image::default()
         }
+        RawIcon::Empty => Image::default(),
     }
-    Image::default()
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -97,8 +102,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
             slint::invoke_from_event_loop(move || {
                 if let Some(ui) = ui_handle_cb.upgrade() {
-                    let icon_b64 = get_app_icon(file_str.clone());
-                    let icon = load_image_from_base64(&icon_b64);
+                    let icon_raw = get_app_icon(file_str.clone());
+                    let icon = load_image_from_raw(icon_raw);
                     let size_str = format_size(size);
 
                     let raw_size_kb = (size / 1024) as i32;

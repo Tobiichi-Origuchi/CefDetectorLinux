@@ -17,7 +17,6 @@ slint-build = "1.9.0"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-base64 = "0.22"
 pelite = "0.10"
 ignore = "0.4"
 regex = "1.12"
@@ -25,7 +24,8 @@ memchr = "2.8"
 memmap2 = "0.9"
 slint = "1.9.0"
 backhand = "0.25"
-image = "0.25"
+image = { version = "0.25", default-features = false, features = ["png", "ico", "webp"] }
+mimalloc = "0.1"
 
 [package.metadata.packager]
 identifier = "com.cefdetector.linux"
@@ -41,3 +41,10 @@ files = { "completions/cefdetector.bash" = "/usr/share/bash-completion/completio
 
 [package.metadata.packager.pacman]
 files = { "completions/cefdetector.bash" = "/usr/share/bash-completion/completions/cefdetector", "completions/cefdetector.zsh" = "/usr/share/zsh/vendor-completions/_cefdetector", "completions/cefdetector.fish" = "/usr/share/fish/vendor_completions.d/cefdetector.fish" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

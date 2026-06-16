@@ -1,12 +1,15 @@
-use base64::Engine;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn encode_file_to_base64(path: &Path) -> Option<String> {
-    if let Ok(data) = fs::read(path) {
-        return Some(base64::engine::general_purpose::STANDARD.encode(data));
-    }
-    None
+#[derive(Clone)]
+pub enum RawIcon {
+    Svg(Vec<u8>),
+    PngOrIco(Vec<u8>),
+    Empty,
+}
+
+pub fn read_file_bytes(path: &Path) -> Option<Vec<u8>> {
+    fs::read(path).ok()
 }
 
 pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
@@ -176,7 +179,7 @@ fn extract_pe_icon_bytes(exe_path: &Path) -> Option<Vec<u8>> {
     None
 }
 
-pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
+pub fn find_icon_via_pe(exe_path: &Path) -> Option<RawIcon> {
     let path_str = exe_path.to_string_lossy();
     if !path_str.to_lowercase().ends_with(".exe") {
         return None;
@@ -184,8 +187,7 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
 
     // Try the exact executable
     if let Some(bytes) = extract_pe_icon_bytes(exe_path) {
-        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-        return Some(format!("data:image/x-icon;base64,{}", encoded));
+        return Some(RawIcon::PngOrIco(bytes));
     }
 
     // Try sibling executables in the same directory, then parent directory
@@ -200,8 +202,7 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
                         && p != exe_path
                         && let Some(bytes) = extract_pe_icon_bytes(&p)
                     {
-                        let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                        return Some(format!("data:image/x-icon;base64,{}", encoded));
+                        return Some(RawIcon::PngOrIco(bytes));
                     }
                 }
             }
@@ -214,7 +215,7 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<String> {
     None
 }
 
-pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
+pub fn find_icon_via_appimage(exe_path: &Path) -> Option<RawIcon> {
     use backhand::{InnerNode, Squashfs};
     use memmap2::MmapOptions;
     use std::io::{Read, Seek, SeekFrom};
@@ -277,58 +278,58 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<String> {
                 .and_then(|e| e.to_str())
                 .unwrap_or("png")
                 .to_lowercase();
-            let mime = match ext.as_str() {
-                "svg" => "image/svg+xml",
-                _ => "image/png",
-            };
-            let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
-            return Some(format!("data:{};base64,{}", mime, encoded));
+            if ext == "svg" {
+                return Some(RawIcon::Svg(bytes));
+            } else {
+                return Some(RawIcon::PngOrIco(bytes));
+            }
         }
     }
 
     None
 }
 
-pub fn get_app_icon(path: String) -> String {
+pub fn get_app_icon(path: String) -> RawIcon {
     let exe_path = Path::new(&path);
 
-    if let Some(b64) = find_icon_via_pe(exe_path) {
-        return b64;
+    if let Some(b) = find_icon_via_pe(exe_path) {
+        return b;
     }
 
-    if let Some(b64) = find_icon_via_appimage(exe_path) {
-        return b64;
+    if let Some(b) = find_icon_via_appimage(exe_path) {
+        return b;
     }
 
     if let Some(p) = find_neighboring_icon(exe_path)
-        && let Some(b64) = encode_file_to_base64(&p)
+        && let Some(bytes) = read_file_bytes(&p)
     {
-        return format!("data:image/png;base64,{}", b64);
-    }
-
-    if let Some(p) = crate::package_manager::find_icon_via_package_manager(exe_path) {
         let ext = p.extension().unwrap_or_default().to_string_lossy();
-        let mime = if ext == "svg" {
-            "image/svg+xml"
+        if ext == "svg" {
+            return RawIcon::Svg(bytes);
         } else {
-            "image/png"
-        };
-        if let Some(b64) = encode_file_to_base64(&p) {
-            return format!("data:{};base64,{}", mime, b64);
+            return RawIcon::PngOrIco(bytes);
         }
     }
 
-    if let Some(p) = find_icon_via_desktop_file(exe_path) {
-        let ext = p.extension().unwrap_or_default().to_string_lossy();
-        let mime = if ext == "svg" {
-            "image/svg+xml"
-        } else {
-            "image/png"
-        };
-        if let Some(b64) = encode_file_to_base64(&p) {
-            return format!("data:{};base64,{}", mime, b64);
+    if let Some(p) = crate::package_manager::find_icon_via_package_manager(exe_path)
+        && let Some(bytes) = read_file_bytes(&p) {
+            let ext = p.extension().unwrap_or_default().to_string_lossy();
+            if ext == "svg" {
+                return RawIcon::Svg(bytes);
+            } else {
+                return RawIcon::PngOrIco(bytes);
+            }
         }
-    }
 
-    include_str!("default_cef_icon.txt").to_string()
+    if let Some(p) = find_icon_via_desktop_file(exe_path)
+        && let Some(bytes) = read_file_bytes(&p) {
+            let ext = p.extension().unwrap_or_default().to_string_lossy();
+            if ext == "svg" {
+                return RawIcon::Svg(bytes);
+            } else {
+                return RawIcon::PngOrIco(bytes);
+            }
+        }
+
+    RawIcon::PngOrIco(include_bytes!("default_cef_icon.ico").to_vec())
 }

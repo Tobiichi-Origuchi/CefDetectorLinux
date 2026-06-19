@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 
 #[derive(Clone)]
 pub enum RawIcon {
@@ -8,12 +10,42 @@ pub enum RawIcon {
     Empty,
 }
 
+static RAW_ICON_CACHE: LazyLock<Mutex<HashMap<PathBuf, RawIcon>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+static DESKTOP_CACHE: LazyLock<Mutex<HashMap<PathBuf, Option<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+static ICON_THEME_CACHE: LazyLock<Mutex<HashMap<String, Option<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+static NEIGHBOR_ICON_CACHE: LazyLock<Mutex<HashMap<PathBuf, Option<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 pub fn read_file_bytes(path: &Path) -> Option<Vec<u8>> {
     fs::read(path).ok()
 }
 
+fn try_icon_from_path(path: &Path) -> Option<RawIcon> {
+    let bytes = read_file_bytes(path)?;
+    let is_svg = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("svg"))
+        .unwrap_or(false);
+    Some(if is_svg {
+        RawIcon::Svg(bytes)
+    } else {
+        RawIcon::PngOrIco(bytes)
+    })
+}
+
 pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
-    let search_dirs = [
+    if let Some(cached) = ICON_THEME_CACHE.lock().unwrap().get(icon_name) {
+        return cached.clone();
+    }
+
+    let search_dirs: &[&str] = &[
         "/usr/share/pixmaps",
         "/usr/share/icons/hicolor/512x512/apps",
         "/usr/share/icons/hicolor/256x256/apps",
@@ -26,104 +58,152 @@ pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
         "/usr/share/icons/Adwaita/256x256/apps",
         "/usr/share/icons/Adwaita/scalable/apps",
     ];
-    let current_home = std::env::var("HOME").ok();
 
-    let mut all_dirs: Vec<String> = search_dirs.iter().map(|&s| s.to_string()).collect();
-    if let Some(h) = current_home {
-        all_dirs.push(format!("{}/.local/share/icons/hicolor/512x512/apps", h));
-        all_dirs.push(format!("{}/.local/share/icons/hicolor/256x256/apps", h));
-        all_dirs.push(format!("{}/.local/share/icons/hicolor/128x128/apps", h));
-        all_dirs.push(format!("{}/.local/share/icons/hicolor/scalable/apps", h));
-        all_dirs.push(format!("{}/.local/share/icons", h));
-    }
+    let home_dirs: Option<[String; 5]> = std::env::var("HOME").ok().map(|h| {
+        [
+            format!("{}/.local/share/icons/hicolor/512x512/apps", h),
+            format!("{}/.local/share/icons/hicolor/256x256/apps", h),
+            format!("{}/.local/share/icons/hicolor/128x128/apps", h),
+            format!("{}/.local/share/icons/hicolor/scalable/apps", h),
+            format!("{}/.local/share/icons", h),
+        ]
+    });
 
-    for ext in ["png", "svg"] {
-        for dir in &all_dirs {
-            let p = Path::new(dir).join(format!("{}.{}", icon_name, ext));
-            if p.exists() {
-                return Some(p);
+    let result = {
+        let mut found = None;
+        for ext in ["png", "svg"] {
+            for dir in search_dirs {
+                let p = Path::new(dir).join(format!("{}.{}", icon_name, ext));
+                if p.exists() {
+                    found = Some(p);
+                    break;
+                }
+            }
+            if found.is_none()
+                && let Some(ref dirs) = home_dirs
+            {
+                for dir in dirs {
+                    let p = Path::new(dir).join(format!("{}.{}", icon_name, ext));
+                    if p.exists() {
+                        found = Some(p);
+                        break;
+                    }
+                }
+            }
+            if found.is_some() {
+                break;
             }
         }
-    }
-    None
+        found
+    };
+
+    ICON_THEME_CACHE
+        .lock()
+        .unwrap()
+        .insert(icon_name.to_owned(), result.clone());
+    result
 }
 
 pub fn find_neighboring_icon(exe_path: &Path) -> Option<PathBuf> {
     let parent = exe_path.parent()?;
+
+    if let Some(cached) = NEIGHBOR_ICON_CACHE.lock().unwrap().get(parent) {
+        return cached.clone();
+    }
+
     let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
 
-    let mut dirs_to_check = vec![parent.to_path_buf()];
-    let resources_dir = parent.join("resources");
-    if resources_dir.exists() {
-        dirs_to_check.push(resources_dir);
-    }
-    let assets_dir = parent.join("assets");
-    if assets_dir.exists() {
-        dirs_to_check.push(assets_dir);
-    }
+    let result = (|| {
+        let mut dirs_to_check = vec![parent.to_path_buf()];
+        let resources_dir = parent.join("resources");
+        if resources_dir.exists() {
+            dirs_to_check.push(resources_dir);
+        }
+        let assets_dir = parent.join("assets");
+        if assets_dir.exists() {
+            dirs_to_check.push(assets_dir);
+        }
 
-    let possible_names = [
-        format!("{}.png", exe_name),
-        format!("{}.svg", exe_name),
-        "icon.png".to_string(),
-        "logo.png".to_string(),
-        "app.png".to_string(),
-    ];
+        let name_pat = [format!("{}.png", exe_name), format!("{}.svg", exe_name)];
+        let name_fixed = ["icon.png", "logo.png", "app.png"];
 
-    for dir in dirs_to_check {
-        for name in &possible_names {
-            let p = dir.join(name);
-            if p.exists() {
-                return Some(p);
+        for dir in dirs_to_check {
+            for name in name_pat
+                .iter()
+                .map(|s| s.as_str())
+                .chain(name_fixed.iter().copied())
+            {
+                let p = dir.join(name);
+                if p.exists() {
+                    return Some(p);
+                }
             }
         }
-    }
-    None
+        None
+    })();
+
+    NEIGHBOR_ICON_CACHE
+        .lock()
+        .unwrap()
+        .insert(parent.to_path_buf(), result.clone());
+    result
 }
 
 pub fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
-    let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
-
-    let mut search_dirs = vec![
-        "/usr/share/applications".to_string(),
-        "/var/lib/flatpak/exports/share/applications".to_string(),
-    ];
-    if let Ok(home) = std::env::var("HOME") {
-        search_dirs.push(format!("{}/.local/share/applications", home));
+    if let Some(cached) = DESKTOP_CACHE.lock().unwrap().get(exe_path) {
+        return cached.clone();
     }
 
-    for dir in search_dirs {
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().is_some_and(|e| e == "desktop")
-                    && let Ok(content) = fs::read_to_string(&path)
-                {
-                    let mut has_exec = false;
-                    let mut icon_val = None;
-                    for line in content.lines() {
-                        if line.starts_with("Exec=") && line.contains(&exe_name) {
-                            has_exec = true;
+    let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
+
+    let result = (|| {
+        let mut search_dirs = vec![
+            "/usr/share/applications".to_string(),
+            "/var/lib/flatpak/exports/share/applications".to_string(),
+        ];
+        if let Ok(home) = std::env::var("HOME") {
+            search_dirs.push(format!("{}/.local/share/applications", home));
+        }
+
+        for dir in search_dirs {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().is_some_and(|e| e == "desktop")
+                        && let Ok(content) = fs::read_to_string(&path)
+                    {
+                        let mut has_exec = false;
+                        let mut icon_val = None;
+                        for line in content.lines() {
+                            if line.starts_with("Exec=") && line.contains(&exe_name) {
+                                has_exec = true;
+                            }
+                            if line.starts_with("Icon=") {
+                                icon_val = Some(line.trim_start_matches("Icon=").to_string());
+                            }
                         }
-                        if line.starts_with("Icon=") {
-                            icon_val = Some(line.trim_start_matches("Icon=").to_string());
-                        }
-                    }
-                    if has_exec && let Some(icon) = icon_val {
-                        if icon.starts_with('/') {
-                            let p = PathBuf::from(icon);
-                            if p.exists() {
+                        if has_exec && let Some(icon) = icon_val {
+                            if icon.starts_with('/') {
+                                let p = PathBuf::from(icon);
+                                if p.exists() {
+                                    return Some(p);
+                                }
+                            } else if let Some(p) = find_icon_in_theme(&icon) {
                                 return Some(p);
                             }
-                        } else if let Some(p) = find_icon_in_theme(&icon) {
-                            return Some(p);
                         }
                     }
                 }
             }
         }
-    }
-    None
+        None
+    })();
+
+    DESKTOP_CACHE
+        .lock()
+        .unwrap()
+        .insert(exe_path.to_path_buf(), result.clone());
+    result
 }
 
 fn assemble_valid_ico(group: pelite::resources::group::GroupResource<'_>) -> Vec<u8> {
@@ -289,49 +369,55 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<RawIcon> {
     None
 }
 
+/// Release all icon-lookup caches. Call once after scan completes.
+pub fn clear_icon_caches() {
+    RAW_ICON_CACHE.lock().unwrap().clear();
+    DESKTOP_CACHE.lock().unwrap().clear();
+    ICON_THEME_CACHE.lock().unwrap().clear();
+    NEIGHBOR_ICON_CACHE.lock().unwrap().clear();
+}
+
 pub fn get_app_icon(path: String) -> RawIcon {
     let exe_path = Path::new(&path);
 
+    if let Some(cached) = RAW_ICON_CACHE.lock().unwrap().get(exe_path) {
+        return cached.clone();
+    }
+
     if let Some(b) = find_icon_via_pe(exe_path) {
-        return b;
+        let result = b;
+        RAW_ICON_CACHE
+            .lock()
+            .unwrap()
+            .insert(exe_path.to_path_buf(), result.clone());
+        return result;
     }
 
     if let Some(b) = find_icon_via_appimage(exe_path) {
-        return b;
+        let result = b;
+        RAW_ICON_CACHE
+            .lock()
+            .unwrap()
+            .insert(exe_path.to_path_buf(), result.clone());
+        return result;
     }
 
-    if let Some(p) = find_neighboring_icon(exe_path)
-        && let Some(bytes) = read_file_bytes(&p)
-    {
-        let ext = p.extension().unwrap_or_default().to_string_lossy();
-        if ext == "svg" {
-            return RawIcon::Svg(bytes);
-        } else {
-            return RawIcon::PngOrIco(bytes);
+    for path_finder in [
+        |ep: &Path| find_neighboring_icon(ep),
+        |ep: &Path| crate::package_manager::find_icon_via_package_manager(ep),
+        |ep: &Path| find_icon_via_desktop_file(ep),
+    ] {
+        if let Some(p) = path_finder(exe_path)
+            && let Some(icon) = try_icon_from_path(&p)
+        {
+            RAW_ICON_CACHE
+                .lock()
+                .unwrap()
+                .insert(exe_path.to_path_buf(), icon.clone());
+            return icon;
         }
     }
 
-    if let Some(p) = crate::package_manager::find_icon_via_package_manager(exe_path)
-        && let Some(bytes) = read_file_bytes(&p)
-    {
-        let ext = p.extension().unwrap_or_default().to_string_lossy();
-        if ext == "svg" {
-            return RawIcon::Svg(bytes);
-        } else {
-            return RawIcon::PngOrIco(bytes);
-        }
-    }
-
-    if let Some(p) = find_icon_via_desktop_file(exe_path)
-        && let Some(bytes) = read_file_bytes(&p)
-    {
-        let ext = p.extension().unwrap_or_default().to_string_lossy();
-        if ext == "svg" {
-            return RawIcon::Svg(bytes);
-        } else {
-            return RawIcon::PngOrIco(bytes);
-        }
-    }
-
+    // Fallback — not cached: static bytes, to_vec() is cheap enough per call
     RawIcon::PngOrIco(include_bytes!("default_cef_icon.ico").to_vec())
 }

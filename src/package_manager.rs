@@ -1,5 +1,10 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{LazyLock, Mutex};
+
+static PM_CACHE: LazyLock<Mutex<HashMap<PathBuf, Option<PathBuf>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 fn get_command_output(cmd: &str, args: &[&str]) -> Option<String> {
     let output = Command::new(cmd).args(args).output().ok()?;
@@ -10,9 +15,27 @@ fn get_command_output(cmd: &str, args: &[&str]) -> Option<String> {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Traditional Package Managers (Arch, Debian/Ubuntu, RHEL/Fedora/SUSE, Gentoo)
-// -----------------------------------------------------------------------------
+fn collect_files_recursive(dirs: &[PathBuf], files: &mut Vec<PathBuf>) {
+    for dir in dirs {
+        if dir.exists() {
+            let mut stack = vec![dir.clone()];
+            while let Some(current) = stack.pop() {
+                if let Ok(entries) = std::fs::read_dir(&current) {
+                    for entry in entries.flatten() {
+                        let p = entry.path();
+                        if p.is_dir() {
+                            stack.push(p);
+                        } else {
+                            files.push(p);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Traditional package managers (pacman, dpkg, rpm, portage)
 
 fn query_pacman(exe_path: &str) -> Option<Vec<PathBuf>> {
     let pkg = get_command_output("pacman", &["-Qoq", exe_path])?;
@@ -41,9 +64,7 @@ fn query_portage(exe_path: &str) -> Option<Vec<PathBuf>> {
     Some(files.lines().map(PathBuf::from).collect())
 }
 
-// -----------------------------------------------------------------------------
-// Modern / Path-based Package Managers (Snap, Flatpak, Nix, Brew)
-// -----------------------------------------------------------------------------
+// Path-based package managers (snap, flatpak, nix, brew)
 
 fn query_snap(exe_path: &Path) -> Option<Vec<PathBuf>> {
     // Snap paths are typically /snap/<name>/<revision>/...
@@ -84,11 +105,11 @@ fn query_snap(exe_path: &Path) -> Option<Vec<PathBuf>> {
 
 fn query_flatpak(exe_path: &Path) -> Option<Vec<PathBuf>> {
     // Flatpak app paths: /var/lib/flatpak/app/<app-id>/<arch>/<branch>/<hash>/...
-    let path_str = exe_path.to_string_lossy();
-    if !path_str.starts_with("/var/lib/flatpak/app/") {
+    if !exe_path.starts_with("/var/lib/flatpak/app") {
         return None;
     }
 
+    let path_str = exe_path.to_string_lossy();
     let parts: Vec<&str> = path_str.split('/').collect();
     if parts.len() < 7 {
         return None;
@@ -118,11 +139,11 @@ fn query_flatpak(exe_path: &Path) -> Option<Vec<PathBuf>> {
 
 fn query_nix(exe_path: &Path) -> Option<Vec<PathBuf>> {
     // Nix paths: /nix/store/<hash>-<name>-<version>/bin/...
-    let path_str = exe_path.to_string_lossy();
-    if !path_str.starts_with("/nix/store/") {
+    if !exe_path.starts_with("/nix/store") {
         return None;
     }
 
+    let path_str = exe_path.to_string_lossy();
     let parts: Vec<&str> = path_str.split('/').collect();
     if parts.len() < 4 {
         return None;
@@ -130,27 +151,13 @@ fn query_nix(exe_path: &Path) -> Option<Vec<PathBuf>> {
     let store_root = format!("/nix/store/{}", parts[3]);
 
     let mut files = Vec::new();
-    let share_icons = Path::new(&store_root).join("share/icons");
-    let share_pixmaps = Path::new(&store_root).join("share/pixmaps");
-
-    // Recursively collect all files in share/icons and share/pixmaps
-    for dir in &[share_icons, share_pixmaps] {
-        if dir.exists() {
-            let mut stack = vec![dir.clone()];
-            while let Some(current) = stack.pop() {
-                if let Ok(entries) = std::fs::read_dir(current) {
-                    for entry in entries.flatten() {
-                        let p = entry.path();
-                        if p.is_dir() {
-                            stack.push(p);
-                        } else {
-                            files.push(p);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    collect_files_recursive(
+        &[
+            Path::new(&store_root).join("share/icons"),
+            Path::new(&store_root).join("share/pixmaps"),
+        ],
+        &mut files,
+    );
 
     Some(files)
 }
@@ -172,48 +179,36 @@ fn query_brew(exe_path: &Path) -> Option<Vec<PathBuf>> {
     let root_path = parts[..cellar_idx + 3].join("/");
 
     let mut files = Vec::new();
-    let share_icons = Path::new(&root_path).join("share/icons");
-    let share_pixmaps = Path::new(&root_path).join("share/pixmaps");
-
-    for dir in &[share_icons, share_pixmaps] {
-        if dir.exists() {
-            let mut stack = vec![dir.clone()];
-            while let Some(current) = stack.pop() {
-                if let Ok(entries) = std::fs::read_dir(current) {
-                    for entry in entries.flatten() {
-                        let p = entry.path();
-                        if p.is_dir() {
-                            stack.push(p);
-                        } else {
-                            files.push(p);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    collect_files_recursive(
+        &[
+            Path::new(&root_path).join("share/icons"),
+            Path::new(&root_path).join("share/pixmaps"),
+        ],
+        &mut files,
+    );
 
     Some(files)
 }
 
-// -----------------------------------------------------------------------------
-// Main Entrypoint
-// -----------------------------------------------------------------------------
+pub fn clear_pm_cache() {
+    PM_CACHE.lock().unwrap().clear();
+}
 
 pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
-    let path_str = exe_path.to_string_lossy();
+    if let Some(cached) = PM_CACHE.lock().unwrap().get(exe_path) {
+        return cached.clone();
+    }
 
-    // Try path-based first
-    let files = if path_str.starts_with("/nix/store/") {
+    let files = if exe_path.starts_with("/nix/store") {
         query_nix(exe_path)
-    } else if path_str.starts_with("/snap/") {
+    } else if exe_path.starts_with("/snap") {
         query_snap(exe_path)
-    } else if path_str.starts_with("/var/lib/flatpak/app/") {
+    } else if exe_path.starts_with("/var/lib/flatpak/app") {
         query_flatpak(exe_path)
-    } else if path_str.contains(".linuxbrew/Cellar/") {
+    } else if exe_path.to_string_lossy().contains(".linuxbrew/Cellar/") {
         query_brew(exe_path)
     } else {
-        // Try traditional package managers
+        let path_str = exe_path.to_string_lossy();
         query_pacman(&path_str)
             .or_else(|| query_dpkg(&path_str))
             .or_else(|| query_rpm(&path_str))
@@ -289,5 +284,9 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
         }
     }
 
+    PM_CACHE
+        .lock()
+        .unwrap()
+        .insert(exe_path.to_path_buf(), best_icon.clone());
     best_icon
 }

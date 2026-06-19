@@ -7,7 +7,6 @@ pub struct AppInfo {
     pub size: u64,
     pub is_running: bool,
     pub is_dir: bool,
-    pub icon: String,
 }
 
 #[derive(Serialize)]

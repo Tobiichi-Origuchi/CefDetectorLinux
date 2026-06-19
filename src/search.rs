@@ -3,9 +3,18 @@ use std::fs;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use crate::models::AppInfo;
+
+static FILE_PATTERNS: LazyLock<regex::RegexSet> = LazyLock::new(|| {
+    regex::RegexSet::new([
+        r"_100_.*\.pak$", // 0: Chromium PAK resource files
+        r"libcef",        // 1: CEF library
+        r"libnode.*\.so", // 2: Node.js shared library (Electron)
+    ])
+    .unwrap()
+});
 
 pub fn open_path(path: String, is_dir: bool) {
     if is_dir {
@@ -18,7 +27,6 @@ pub fn open_path(path: String, is_dir: bool) {
 }
 
 use ignore::{WalkBuilder, WalkState};
-use regex::Regex;
 
 struct IgnoreConfig {
     dir_names: HashSet<String>,
@@ -57,16 +65,12 @@ fn load_ignore_config() -> IgnoreConfig {
 }
 
 struct ScanResults {
-    pak_files: Vec<String>,  // _100_*.pak
-    cef_files: Vec<String>,  // libcef*
-    node_files: Vec<String>, // libnode*.so
+    pak_files: Vec<String>,
+    cef_files: Vec<String>,
+    node_files: Vec<String>,
 }
 
 fn single_pass_scan() -> ScanResults {
-    let re_pak = Regex::new(r"_100_(.+?)\.pak$").unwrap();
-    let re_cef = Regex::new(r"libcef").unwrap();
-    let re_node = Regex::new(r"libnode.*?\.so").unwrap();
-
     let pak_results = Arc::new(Mutex::new(Vec::new()));
     let cef_results = Arc::new(Mutex::new(Vec::new()));
     let node_results = Arc::new(Mutex::new(Vec::new()));
@@ -77,7 +81,11 @@ fn single_pass_scan() -> ScanResults {
     builder
         .standard_filters(false)
         .hidden(false)
-        .threads(6)
+        .threads(
+            std::thread::available_parallelism()
+                .map(|n| n.get().min(8))
+                .unwrap_or(4),
+        )
         .filter_entry(move |entry| {
             let path = entry.path();
             if path.starts_with("/proc")
@@ -91,7 +99,6 @@ fn single_pass_scan() -> ScanResults {
                 return false;
             }
 
-            // User-defined exclusions
             if entry.file_type().is_some_and(|ft| ft.is_dir()) {
                 if ignore_config.abs_paths.contains(path) {
                     return false;
@@ -112,9 +119,6 @@ fn single_pass_scan() -> ScanResults {
         let pak = Arc::clone(&pak_results);
         let cef = Arc::clone(&cef_results);
         let node = Arc::clone(&node_results);
-        let re_p = re_pak.clone();
-        let re_c = re_cef.clone();
-        let re_n = re_node.clone();
 
         Box::new(move |result| {
             if let Ok(entry) = result
@@ -122,20 +126,27 @@ fn single_pass_scan() -> ScanResults {
                 && file_type.is_file()
             {
                 let name = entry.file_name().to_string_lossy();
-                let matched_pak = re_p.is_match(&name);
-                let matched_cef = re_c.is_match(&name);
-                let matched_node = re_n.is_match(&name);
+                let pattern_matches = FILE_PATTERNS.matches(&name);
+                let matched_pak = pattern_matches.matched(0);
+                let matched_cef = pattern_matches.matched(1);
+                let matched_node = pattern_matches.matched(2);
 
                 if matched_pak || matched_cef || matched_node {
-                    let path_str = entry.path().to_string_lossy().to_string();
+                    let path_str = entry.path().to_string_lossy().into_owned();
                     if matched_pak {
-                        pak.lock().unwrap().push(path_str.clone());
+                        pak.lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .push(path_str.clone());
                     }
                     if matched_cef {
-                        cef.lock().unwrap().push(path_str.clone());
+                        cef.lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .push(path_str.clone());
                     }
                     if matched_node {
-                        node.lock().unwrap().push(path_str);
+                        node.lock()
+                            .unwrap_or_else(|e| e.into_inner())
+                            .push(path_str);
                     }
                 }
             }
@@ -202,7 +213,7 @@ where
     let mut global_ino_cache = HashSet::new();
 
     let mut add_app = |file: &Path, app_type: &str, is_dir: bool| {
-        let file_str = file.to_string_lossy().to_string();
+        let file_str = file.to_string_lossy().into_owned();
         if !found_files.insert(file_str.clone()) {
             return;
         }
@@ -221,11 +232,10 @@ where
 
         on_found(AppInfo {
             file: file_str,
-            app_type: app_type.to_string(),
+            app_type: app_type.to_owned(),
             size,
             is_running,
             is_dir,
-            icon: "".to_string(),
         });
     };
 
@@ -252,7 +262,7 @@ where
                     continue;
                 }
 
-                // On Linux, executable files and .so files are relevant
+                // Executables and .so files may embed CEF signatures
                 let is_so = path.extension().is_some_and(|e| e == "so");
                 let is_exec = meta.permissions().mode() & 0o111 != 0;
 
@@ -265,6 +275,7 @@ where
                     Err(_) => continue,
                 };
 
+                // SAFETY: read-only mmap; SIGBUS possible if file is truncated concurrently
                 let mmap = unsafe { memmap2::MmapOptions::new().map(&file) };
                 if let Ok(data) = mmap {
                     let typ = if contains_bytes(&data, b"third_party/electron_node")
@@ -317,7 +328,7 @@ where
                 continue;
             };
 
-            if !visited_dirs.insert(dir.to_string_lossy().to_string()) {
+            if !visited_dirs.insert(dir.to_string_lossy().into_owned()) {
                 continue;
             }
 
@@ -382,13 +393,13 @@ where
                 if !meta.is_file() {
                     continue;
                 }
-                // check executables or .so
                 let is_exec = meta.permissions().mode() & 0o111 != 0;
                 let is_so = path.extension().is_some_and(|e| e == "so");
 
                 if (is_exec || is_so)
                     && let Ok(file_handle) = fs::File::open(&path)
                 {
+                    // SAFETY: read-only mmap; SIGBUS possible if file is truncated concurrently
                     let mmap = unsafe { memmap2::MmapOptions::new().map(&file_handle) };
                     if let Ok(data) = mmap {
                         let typ = if contains_bytes(&data, b"napi_create_buffer") {

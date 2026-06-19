@@ -3,11 +3,18 @@ use crate::search::core_search;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Clone, Copy, PartialEq)]
+enum OutputFormat {
+    Toml,
+    Json,
+    Csv,
+}
+
 pub fn handle_cli() {
     let args: Vec<String> = std::env::args().collect();
     let mut show_help = false;
     let mut show_version = false;
-    let mut format = String::new();
+    let mut output_format: Option<OutputFormat> = None;
     let mut output_path = None;
 
     let mut i = 1;
@@ -15,9 +22,9 @@ pub fn handle_cli() {
         match args[i].as_str() {
             "--help" | "-h" => show_help = true,
             "--version" | "-V" => show_version = true,
-            "--toml" | "-T" => format = "toml".to_string(),
-            "--json" | "-J" => format = "json".to_string(),
-            "--csv" | "-C" => format = "csv".to_string(),
+            "--toml" | "-T" => output_format = Some(OutputFormat::Toml),
+            "--json" | "-J" => output_format = Some(OutputFormat::Json),
+            "--csv" | "-C" => output_format = Some(OutputFormat::Csv),
             "--output" | "-O" => {
                 if i + 1 < args.len() {
                     output_path = Some(args[i + 1].clone());
@@ -54,14 +61,14 @@ pub fn handle_cli() {
         std::process::exit(0);
     }
 
-    if !format.is_empty() {
+    if let Some(fmt) = output_format {
         let mut results = Vec::new();
         core_search(|info| {
             results.push(info);
         });
 
-        let output_str = match format.as_str() {
-            "json" => {
+        let output_str = match fmt {
+            OutputFormat::Json => {
                 let cli_results: Vec<CliAppInfo> = results
                     .iter()
                     .map(|r| CliAppInfo {
@@ -74,7 +81,7 @@ pub fn handle_cli() {
                     .collect();
                 serde_json::to_string_pretty(&cli_results).unwrap_or_default()
             }
-            "toml" => {
+            OutputFormat::Toml => {
                 let mut s = String::new();
                 for r in &results {
                     s.push_str("[[app]]\n");
@@ -89,7 +96,7 @@ pub fn handle_cli() {
                 }
                 s
             }
-            "csv" => {
+            OutputFormat::Csv => {
                 let mut s = String::from("file,app_type,size,is_running,is_dir\n");
                 for r in &results {
                     let escaped_file = r.file.replace("\"", "\"\"");
@@ -100,7 +107,6 @@ pub fn handle_cli() {
                 }
                 s
             }
-            _ => String::new(),
         };
 
         if let Some(path) = output_path {

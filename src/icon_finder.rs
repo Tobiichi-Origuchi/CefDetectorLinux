@@ -419,5 +419,5 @@ pub fn get_app_icon(path: String) -> RawIcon {
     }
 
     // Fallback — not cached: static bytes, to_vec() is cheap enough per call
-    RawIcon::PngOrIco(include_bytes!("default_cef_icon.ico").to_vec())
+    RawIcon::PngOrIco(include_bytes!("../icons/default_cef_icon.ico").to_vec())
 }

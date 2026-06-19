@@ -68,6 +68,23 @@ node_modules
 - 显示当前所运行的进程 (绿色文件名)
 - 单独显示每个程序的空间占用并按大小排序
 
+## Benchmark
+
+```bash
+$ hyperfine -w 5 -r 10 "./target/release/cefdetector -T" "./target/release/cefdetector -J" "./target/release/cefdetector -C"
+Benchmark 1: ./target/release/cefdetector -T
+  Time (mean ± σ):     478.6 ms ±  13.3 ms    [User: 1598.4 ms, System: 1473.7 ms]
+  Range (min … max):   459.9 ms … 503.2 ms    10 runs
+
+Benchmark 2: ./target/release/cefdetector -J
+  Time (mean ± σ):     484.0 ms ±  12.4 ms    [User: 1621.7 ms, System: 1489.3 ms]
+  Range (min … max):   462.1 ms … 499.3 ms    10 runs
+
+Benchmark 3: ./target/release/cefdetector -C
+  Time (mean ± σ):     478.7 ms ±   9.0 ms    [User: 1605.8 ms, System: 1468.9 ms]
+  Range (min … max):   470.4 ms … 499.1 ms    10 runs
+```
+
 ## 作者
 
 Origuchi

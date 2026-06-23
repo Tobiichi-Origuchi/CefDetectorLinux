@@ -22,8 +22,9 @@ memmap2 = "0.9"
 backhand = "0.25"
 image = { version = "0.25", default-features = false, features = ["png", "ico", "webp"] }
 mimalloc = "0.1"
-eframe = "0.31"
-egui = "0.31"
+eframe = "0.34"
+egui = "0.34"
+fontdb = "0.23"
 
 [package.metadata.packager]
 identifier = "cefdetector"

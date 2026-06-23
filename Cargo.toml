@@ -10,9 +10,6 @@ rust-version = "1.96.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[build-dependencies]
-slint-build = "1.16"
-
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -25,7 +22,8 @@ memmap2 = "0.9"
 backhand = "0.25"
 image = { version = "0.25", default-features = false, features = ["png", "ico", "webp"] }
 mimalloc = "0.1"
-slint = "1.16"
+eframe = "0.31"
+egui = "0.31"
 
 [package.metadata.packager]
 identifier = "cefdetector"

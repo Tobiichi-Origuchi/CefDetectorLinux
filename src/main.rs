@@ -35,22 +35,26 @@ pub(crate) fn format_size(len: u64) -> String {
 
 static DEFAULT_ICON_RGBA: LazyLock<Vec<u8>> = LazyLock::new(|| {
     image::load_from_memory(include_bytes!("../icons/default_cef_icon.ico"))
-        .map(|i| image::imageops::resize(&i, 64, 64, image::imageops::FilterType::Nearest).into_raw())
+        .map(|i| {
+            image::imageops::resize(&i, 64, 64, image::imageops::FilterType::Nearest).into_raw()
+        })
         .unwrap_or_else(|_| vec![0u8; 64 * 64 * 4])
 });
 
 fn raw_to_rgba(raw: &RawIcon) -> Vec<u8> {
     match raw {
         RawIcon::PngOrIco(bytes) => image::load_from_memory(bytes)
-            .map(|i| image::imageops::resize(&i, 64, 64, image::imageops::FilterType::Nearest).into_raw())
+            .map(|i| {
+                image::imageops::resize(&i, 64, 64, image::imageops::FilterType::Nearest).into_raw()
+            })
             .unwrap_or_else(|_| DEFAULT_ICON_RGBA.clone()),
         RawIcon::Svg(_) | RawIcon::Empty => DEFAULT_ICON_RGBA.clone(),
     }
 }
 
 fn hash_raw_icon(icon: &RawIcon) -> u64 {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     let mut h = DefaultHasher::new();
     match icon {
         RawIcon::Svg(b) | RawIcon::PngOrIco(b) => b.hash(&mut h),
@@ -163,7 +167,9 @@ fn main() -> Result<(), eframe::Error> {
                 let mut fonts = egui::FontDefinitions::default();
                 fonts.font_data.insert(
                     "CJK".into(),
-                    Arc::new(egui::FontData::from_owned(cjk_font).tweak(egui::FontTweak::default())),
+                    Arc::new(
+                        egui::FontData::from_owned(cjk_font).tweak(egui::FontTweak::default()),
+                    ),
                 );
                 fonts
                     .families

@@ -116,7 +116,9 @@ fn card_ui(
 
 fn open_card(card: &CefCard) {
     if card.is_dir {
-        let _ = std::process::Command::new("xdg-open").arg(&card.file).spawn();
+        let _ = std::process::Command::new("xdg-open")
+            .arg(&card.file)
+            .spawn();
     } else if let Some(p) = std::path::Path::new(&card.file).parent() {
         let _ = std::process::Command::new("xdg-open").arg(p).spawn();
     }
@@ -227,10 +229,13 @@ impl eframe::App for CefDetectorApp {
                 };
                 {
                     let font_id = egui::FontId::new(18.0, egui::FontFamily::Proportional);
-                    let galley = ui.painter().layout_no_wrap(self.status.clone(), font_id, status_fg);
+                    let galley =
+                        ui.painter()
+                            .layout_no_wrap(self.status.clone(), font_id, status_fg);
                     let galsz = galley.size();
                     let x = win.left() + (win.width() - galsz.x) * 0.5;
-                    ui.painter().galley(egui::pos2(x, status_y), galley, status_fg);
+                    ui.painter()
+                        .galley(egui::pos2(x, status_y), galley, status_fg);
                 }
 
                 // scroll area
@@ -285,8 +290,7 @@ impl eframe::App for CefDetectorApp {
                 } else {
                     egui::Color32::from_rgba_unmultiplied(255, 255, 255, 204)
                 };
-                let repo_text =
-                    "Repo: github.com/Tobiichi-Origuchi/CefDetectorLinux (求个STAR!)";
+                let repo_text = "Repo: github.com/Tobiichi-Origuchi/CefDetectorLinux (求个STAR!)";
                 let galley = ui.painter().layout_no_wrap(
                     repo_text.into(),
                     egui::FontId::proportional(12.0),

@@ -123,7 +123,6 @@ fn main() -> Result<(), eframe::Error> {
             batch.push(CefCard {
                 file: info.file.clone(),
                 app_type: info.app_type.clone(),
-                size_str: format_size(info.size),
                 is_running: info.is_running,
                 is_dir: info.is_dir,
                 icon_rgba,
@@ -187,6 +186,7 @@ fn main() -> Result<(), eframe::Error> {
                 textures: HashMap::new(),
                 pending: Vec::new(),
                 bg: None,
+                status_galley: None,
             }))
         }),
     )

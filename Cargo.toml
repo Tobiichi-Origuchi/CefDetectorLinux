@@ -16,7 +16,7 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 pelite = "0.10"
 ignore = "0.4"
-regex = "1.12"
+parking_lot = "0.12"
 memchr = "2.8"
 memmap2 = "0.9"
 backhand = "0.25"

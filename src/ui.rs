@@ -1,5 +1,6 @@
 use eframe::egui;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::icon_finder;
 use crate::package_manager;
@@ -9,12 +10,19 @@ use crate::package_manager;
 pub struct CefCard {
     pub file: String,
     pub app_type: String,
-    pub size_str: String,
     pub is_running: bool,
     pub is_dir: bool,
     pub icon_rgba: Vec<u8>,
     pub filename: String,
+    /// Size in KiB, for sorting (use `size_str()` for display).
     pub raw_size: i32,
+}
+
+impl CefCard {
+    pub fn size_str(&self) -> String {
+        let len = (self.raw_size as u64) * 1024;
+        crate::format_size(len)
+    }
 }
 
 pub enum UiMsg {
@@ -47,7 +55,8 @@ fn card_ui(
         egui::Color32::BLACK
     };
 
-    let (rect, response) = ui.allocate_exact_size(egui::vec2(CARD_W, CARD_H), egui::Sense::click());
+    let (rect, response) =
+        ui.allocate_exact_size(egui::vec2(CARD_W, CARD_H), egui::Sense::click());
 
     if response.hovered() {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
@@ -84,6 +93,7 @@ fn card_ui(
                 }
                 ui.add_space(CARD_INNER_SPACING);
 
+                // Pre-truncated filename from CefCard; no per-frame truncation needed.
                 ui.add(
                     egui::Label::new(
                         egui::RichText::new(&card.filename)
@@ -102,8 +112,9 @@ fn card_ui(
                 );
                 ui.add_space(CARD_INNER_SPACING);
 
+                // Compute size_str on the fly from raw_size (one format! per visible card)
                 ui.label(
-                    egui::RichText::new(&card.size_str)
+                    egui::RichText::new(card.size_str())
                         .color(egui::Color32::from_black_alpha(214))
                         .size(9.0),
                 );
@@ -134,6 +145,8 @@ pub struct CefDetectorApp {
     pub textures: HashMap<String, egui::TextureHandle>,
     pub pending: Vec<CefCard>,
     pub bg: Option<egui::TextureHandle>,
+    /// Cached status text galley to avoid re-layout every frame.
+    pub status_galley: Option<(String, Arc<egui::Galley>)>,
 }
 
 impl eframe::App for CefDetectorApp {
@@ -170,15 +183,17 @@ impl eframe::App for CefDetectorApp {
             }
         }
 
-        // ---- load textures ----
-        for card in self.pending.drain(..) {
+        // ---- load textures (and free CPU-side icon_rgba) ----
+        for mut card in self.pending.drain(..) {
             let img = egui::ColorImage::from_rgba_unmultiplied([64, 64], &card.icon_rgba);
             let handle = ctx.load_texture(card.file.clone(), img, egui::TextureOptions::default());
             self.textures.insert(card.file.clone(), handle);
+            // Release the 16 KB CPU-side RGBA buffer now that GPU owns the texture
+            card.icon_rgba = Vec::new();
             self.cards.push(card);
         }
 
-        // ---- background ----
+        // ---- background (lazy init, once) ----
         if self.bg.is_none()
             && let Ok(mut img) = image::load_from_memory(include_bytes!("../ui/background.webp"))
         {
@@ -220,23 +235,32 @@ impl eframe::App for CefDetectorApp {
                     );
                 }
 
-                // status text
+                // status text (cached galley to avoid re-layout every frame)
                 let status_y = win.top() + win.height() * 0.21;
                 let status_fg = if self.done {
                     egui::Color32::from_rgb(33, 150, 243)
                 } else {
                     egui::Color32::WHITE
                 };
-                {
-                    let font_id = egui::FontId::new(18.0, egui::FontFamily::Proportional);
-                    let galley =
-                        ui.painter()
+
+                let galley = match &self.status_galley {
+                    Some((cached_text, cached_galley)) if cached_text == &self.status => {
+                        cached_galley.clone()
+                    }
+                    _ => {
+                        let font_id = egui::FontId::new(18.0, egui::FontFamily::Proportional);
+                        let g = ui
+                            .painter()
                             .layout_no_wrap(self.status.clone(), font_id, status_fg);
-                    let galsz = galley.size();
-                    let x = win.left() + (win.width() - galsz.x) * 0.5;
-                    ui.painter()
-                        .galley(egui::pos2(x, status_y), galley, status_fg);
-                }
+                        self.status_galley =
+                            Some((self.status.clone(), g.clone()));
+                        g
+                    }
+                };
+                let galsz = galley.size();
+                let x = win.left() + (win.width() - galsz.x) * 0.5;
+                ui.painter()
+                    .galley(egui::pos2(x, status_y), galley, status_fg);
 
                 // scroll area
                 let sa_left = win.left() + win.width() * 0.10;
@@ -310,6 +334,10 @@ impl eframe::App for CefDetectorApp {
                 }
             });
 
-        ctx.request_repaint_after(std::time::Duration::from_millis(120));
+        // Only request repaints while the scan is still in progress.
+        // Once done the UI is static — no need to burn CPU/GPU every 120 ms.
+        if !self.done {
+            ctx.request_repaint_after(std::time::Duration::from_millis(120));
+        }
     }
 }

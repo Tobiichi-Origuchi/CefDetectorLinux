@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Clone, Serialize)]
+#[derive(Serialize)]
 pub struct AppInfo {
     pub file: String,
     pub app_type: String,

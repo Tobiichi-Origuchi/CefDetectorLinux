@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex};
+
+use parking_lot::Mutex;
+use std::sync::LazyLock;
 
 #[derive(Clone)]
 pub enum RawIcon {
@@ -40,9 +42,14 @@ fn try_icon_from_path(path: &Path) -> Option<RawIcon> {
     })
 }
 
+// ---- icon-theme lookup ----
+
 pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
-    if let Some(cached) = ICON_THEME_CACHE.lock().unwrap().get(icon_name) {
-        return cached.clone();
+    {
+        let cache = ICON_THEME_CACHE.lock();
+        if let Some(cached) = cache.get(icon_name) {
+            return cached.clone();
+        }
     }
 
     let search_dirs: &[&str] = &[
@@ -97,18 +104,20 @@ pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
         found
     };
 
-    ICON_THEME_CACHE
-        .lock()
-        .unwrap()
-        .insert(icon_name.to_owned(), result.clone());
+    ICON_THEME_CACHE.lock().insert(icon_name.to_owned(), result.clone());
     result
 }
+
+// ---- neighboring-icon lookup (same dir as executable) ----
 
 pub fn find_neighboring_icon(exe_path: &Path) -> Option<PathBuf> {
     let parent = exe_path.parent()?;
 
-    if let Some(cached) = NEIGHBOR_ICON_CACHE.lock().unwrap().get(parent) {
-        return cached.clone();
+    {
+        let cache = NEIGHBOR_ICON_CACHE.lock();
+        if let Some(cached) = cache.get(parent) {
+            return cached.clone();
+        }
     }
 
     let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
@@ -144,14 +153,18 @@ pub fn find_neighboring_icon(exe_path: &Path) -> Option<PathBuf> {
 
     NEIGHBOR_ICON_CACHE
         .lock()
-        .unwrap()
         .insert(parent.to_path_buf(), result.clone());
     result
 }
 
+// ---- desktop-file icon lookup ----
+
 pub fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
-    if let Some(cached) = DESKTOP_CACHE.lock().unwrap().get(exe_path) {
-        return cached.clone();
+    {
+        let cache = DESKTOP_CACHE.lock();
+        if let Some(cached) = cache.get(exe_path) {
+            return cached.clone();
+        }
     }
 
     let exe_name = exe_path.file_name()?.to_string_lossy().to_string();
@@ -201,10 +214,11 @@ pub fn find_icon_via_desktop_file(exe_path: &Path) -> Option<PathBuf> {
 
     DESKTOP_CACHE
         .lock()
-        .unwrap()
         .insert(exe_path.to_path_buf(), result.clone());
     result
 }
+
+// ---- PE icon extraction (Windows .exe files on Linux, e.g. Wine/Proton apps) ----
 
 fn assemble_valid_ico(group: pelite::resources::group::GroupResource<'_>) -> Vec<u8> {
     let mut out = Vec::new();
@@ -295,6 +309,8 @@ pub fn find_icon_via_pe(exe_path: &Path) -> Option<RawIcon> {
     None
 }
 
+// ---- AppImage icon extraction ----
+
 pub fn find_icon_via_appimage(exe_path: &Path) -> Option<RawIcon> {
     use backhand::{InnerNode, Squashfs};
     use memmap2::MmapOptions;
@@ -306,7 +322,9 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<RawIcon> {
     }
 
     let mut file = fs::File::open(exe_path).ok()?;
-    let mmap = unsafe { MmapOptions::new().map(&file).ok()? };
+    // SAFETY: read-only MAP_PRIVATE; AppImages are not expected to be modified
+    // while we read them, so SIGBUS risk is negligible.
+    let mmap = unsafe { MmapOptions::new().map_copy(&file) }.ok()?;
 
     // Find squashfs magic 'hsqs'
     let offset = memchr::memmem::find(&mmap, b"hsqs")?;
@@ -371,37 +389,42 @@ pub fn find_icon_via_appimage(exe_path: &Path) -> Option<RawIcon> {
 
 /// Release all icon-lookup caches. Call once after scan completes.
 pub fn clear_icon_caches() {
-    RAW_ICON_CACHE.lock().unwrap().clear();
-    DESKTOP_CACHE.lock().unwrap().clear();
-    ICON_THEME_CACHE.lock().unwrap().clear();
-    NEIGHBOR_ICON_CACHE.lock().unwrap().clear();
+    RAW_ICON_CACHE.lock().clear();
+    DESKTOP_CACHE.lock().clear();
+    ICON_THEME_CACHE.lock().clear();
+    NEIGHBOR_ICON_CACHE.lock().clear();
 }
+
+// ---- main entry point: find the best icon for a given executable path ----
 
 pub fn get_app_icon(path: String) -> RawIcon {
     let exe_path = Path::new(&path);
 
-    if let Some(cached) = RAW_ICON_CACHE.lock().unwrap().get(exe_path) {
-        return cached.clone();
+    // Check raw-icon cache
+    {
+        let cache = RAW_ICON_CACHE.lock();
+        if let Some(cached) = cache.get(exe_path) {
+            return cached.clone();
+        }
     }
 
-    if let Some(b) = find_icon_via_pe(exe_path) {
-        let result = b;
+    // Try PE icon extraction (.exe)
+    if let Some(icon) = find_icon_via_pe(exe_path) {
         RAW_ICON_CACHE
             .lock()
-            .unwrap()
-            .insert(exe_path.to_path_buf(), result.clone());
-        return result;
+            .insert(exe_path.to_path_buf(), icon.clone());
+        return icon;
     }
 
-    if let Some(b) = find_icon_via_appimage(exe_path) {
-        let result = b;
+    // Try AppImage squashfs icon
+    if let Some(icon) = find_icon_via_appimage(exe_path) {
         RAW_ICON_CACHE
             .lock()
-            .unwrap()
-            .insert(exe_path.to_path_buf(), result.clone());
-        return result;
+            .insert(exe_path.to_path_buf(), icon.clone());
+        return icon;
     }
 
+    // Try path-based finders (neighbor, package-manager, desktop-file)
     for path_finder in [
         |ep: &Path| find_neighboring_icon(ep),
         |ep: &Path| crate::package_manager::find_icon_via_package_manager(ep),
@@ -412,7 +435,6 @@ pub fn get_app_icon(path: String) -> RawIcon {
         {
             RAW_ICON_CACHE
                 .lock()
-                .unwrap()
                 .insert(exe_path.to_path_buf(), icon.clone());
             return icon;
         }

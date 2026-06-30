@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{LazyLock, Mutex};
+
+use parking_lot::Mutex;
+use std::sync::LazyLock;
 
 static PM_CACHE: LazyLock<Mutex<HashMap<PathBuf, Option<PathBuf>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -191,12 +193,15 @@ fn query_brew(exe_path: &Path) -> Option<Vec<PathBuf>> {
 }
 
 pub fn clear_pm_cache() {
-    PM_CACHE.lock().unwrap().clear();
+    PM_CACHE.lock().clear();
 }
 
 pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
-    if let Some(cached) = PM_CACHE.lock().unwrap().get(exe_path) {
-        return cached.clone();
+    {
+        let cache = PM_CACHE.lock();
+        if let Some(cached) = cache.get(exe_path) {
+            return cached.clone();
+        }
     }
 
     let files = if exe_path.starts_with("/nix/store") {
@@ -284,9 +289,6 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
         }
     }
 
-    PM_CACHE
-        .lock()
-        .unwrap()
-        .insert(exe_path.to_path_buf(), best_icon.clone());
+    PM_CACHE.lock().insert(exe_path.to_path_buf(), best_icon.clone());
     best_icon
 }

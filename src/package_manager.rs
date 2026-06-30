@@ -289,6 +289,8 @@ pub fn find_icon_via_package_manager(exe_path: &Path) -> Option<PathBuf> {
         }
     }
 
-    PM_CACHE.lock().insert(exe_path.to_path_buf(), best_icon.clone());
+    PM_CACHE
+        .lock()
+        .insert(exe_path.to_path_buf(), best_icon.clone());
     best_icon
 }

@@ -55,8 +55,7 @@ fn card_ui(
         egui::Color32::BLACK
     };
 
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(CARD_W, CARD_H), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(CARD_W, CARD_H), egui::Sense::click());
 
     if response.hovered() {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
@@ -249,11 +248,10 @@ impl eframe::App for CefDetectorApp {
                     }
                     _ => {
                         let font_id = egui::FontId::new(18.0, egui::FontFamily::Proportional);
-                        let g = ui
-                            .painter()
-                            .layout_no_wrap(self.status.clone(), font_id, status_fg);
-                        self.status_galley =
-                            Some((self.status.clone(), g.clone()));
+                        let g =
+                            ui.painter()
+                                .layout_no_wrap(self.status.clone(), font_id, status_fg);
+                        self.status_galley = Some((self.status.clone(), g.clone()));
                         g
                     }
                 };

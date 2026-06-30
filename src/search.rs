@@ -174,7 +174,12 @@ fn single_pass_scan() -> ScanResults {
 
 // ---- dir size (with path-cache for repeated calls on the same tree) ----
 
-fn dir_size(dir: &Path, inode_cache: &mut HashSet<u64>, deep: u32, dir_cache: &mut HashMap<PathBuf, u64>) -> u64 {
+fn dir_size(
+    dir: &Path,
+    inode_cache: &mut HashSet<u64>,
+    deep: u32,
+    dir_cache: &mut HashMap<PathBuf, u64>,
+) -> u64 {
     if deep > 10 {
         return 0;
     }

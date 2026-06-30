@@ -104,7 +104,9 @@ pub fn find_icon_in_theme(icon_name: &str) -> Option<PathBuf> {
         found
     };
 
-    ICON_THEME_CACHE.lock().insert(icon_name.to_owned(), result.clone());
+    ICON_THEME_CACHE
+        .lock()
+        .insert(icon_name.to_owned(), result.clone());
     result
 }
 
